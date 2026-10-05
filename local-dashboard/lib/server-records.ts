@@ -1,6 +1,0 @@
-import {env} from 'cloudflare:workers';
-import {getChatGPTUser} from '@/app/chatgpt-auth';
-import {ZodError} from 'zod';
-export async function context(request:Request){const user=await getChatGPTUser();if(!user)throw new Error('Sign in to access your records.');if(request.method!=='GET'){const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)throw new Error('Request origin does not match.');}if(!env.DB)throw new Error('Record storage is unavailable. Please try again.');return{db:env.DB,owner:user.userId,bucket:env.BUCKET};}
-export function failure(error:unknown){console.error('Record request failed',error instanceof Error?error.name:'Unknown error');const message=error instanceof ZodError?error.issues.map(i=>i.message).join('\n'):error instanceof Error?error.message:'Unable to save. Please try again.';return Response.json({error:message.includes('UNIQUE')?'This office code already exists.':message.includes('SQLITE')?'Unable to save records. Please try again.':message},{status:message.includes('Sign in')?401:400});}
-export async function checkOffice(db:D1Database,owner:string,id:string|null){if(id&&!await db.prepare('SELECT id FROM offices WHERE id=? AND owner=?').bind(id,owner).first())throw new Error('Office not found.');}
