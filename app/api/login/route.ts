@@ -1,0 +1,2 @@
+import {checkPassword,sessionCookie} from '@/lib/auth';
+export async function POST(req:Request){const form=await req.formData();if(!checkPassword(String(form.get('password')??''))){await new Promise(r=>setTimeout(r,1000));return new Response(null,{status:303,headers:{Location:'/login?error=1','Cache-Control':'no-store'}});}return new Response(null,{status:303,headers:{Location:'/','Set-Cookie':sessionCookie(req),'Cache-Control':'no-store'}});}
