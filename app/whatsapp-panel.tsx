@@ -1,7 +1,7 @@
  'use client';
 import {useState} from 'react';
 import type {Office,Attachment} from '@/lib/records';
-function number(phone:string){let n=phone.trim().replace(/[ ()-]/g,'');if(n.startsWith('00'))n='+'+n.slice(2);return /^\+[1-9]\d{7,14}$/.test(n)?n.slice(1):null;}
+export function number(phone:string){let n=phone.trim().replace(/[ ()-]/g,'');if(n.startsWith('00'))n='+'+n.slice(2);return /^\+[1-9]\d{7,14}$/.test(n)?n.slice(1):null;}
 export default function WhatsAppPanel({offices,documents}:{offices:Office[];documents:Attachment[]}){
  const [mode,setMode]=useState('private'),[officeId,setOfficeId]=useState(''),[message,setMessage]=useState('');
  const tenants=[...offices].sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true})),office=tenants.find(o=>o.id===officeId);
