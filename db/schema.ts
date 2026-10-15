@@ -71,6 +71,17 @@ CREATE TABLE IF NOT EXISTS invoices (
 );
 CREATE INDEX IF NOT EXISTS invoice_owner ON invoices (owner);
 CREATE UNIQUE INDEX IF NOT EXISTS invoice_owner_payment ON invoices (owner, ((data::jsonb) ->> 'paymentId'));
+CREATE TABLE IF NOT EXISTS users (
+  id text PRIMARY KEY,
+  email text NOT NULL UNIQUE,
+  password text NOT NULL,
+  data text NOT NULL,
+  created text NOT NULL
+);
+CREATE TABLE IF NOT EXISTS roles (
+  id text PRIMARY KEY,
+  data text NOT NULL
+);
 CREATE TABLE IF NOT EXISTS enquiries (
   id text PRIMARY KEY,
   created text NOT NULL,

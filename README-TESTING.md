@@ -11,14 +11,15 @@ Offices, tenants, payments and documents for the BHB and 111 branches, in AED.
 
 3. Open http://localhost:5173/
 
-Local development needs no database setup: records are stored in an embedded Postgres under `.data/` and uploads under `.data/uploads/`. You are signed in automatically as a local test user. To use a real Postgres database instead (for example Neon), set `DATABASE_URL` before `npm run dev`.
+Local development needs no database setup: records are stored in an embedded Postgres under `.data/` and uploads under `.data/uploads/`. You are signed in automatically as a local setup user until the first Super admin account exists; after that, sign in with that account's email and password. To use a real Postgres database instead (for example Neon), set `DATABASE_URL` before `npm run dev`.
 
 ## Production (Google Cloud Run)
 - **App:** Cloud Run service `bhb-dashboard` in project `apps14-483317`, region `us-east5`, built from the `Dockerfile`.
-- **Sign-in:** Google Identity-Aware Proxy (IAP). Only Google accounts granted access can open the app; the app verifies IAP's signed header on every request.
+- **Sign-in:** each person signs in with their own email and password. First setup: leave the email empty and use the shared `APP_PASSWORD`, open **Users & roles** and add yourself as Super admin. The shared password stops working as soon as an active Super admin exists.
 - **Database:** Neon Postgres. The connection string is stored in Secret Manager as `bhb-database-url`; tables are created automatically on first start.
 - **Documents:** Cloud Storage bucket `apps14-483317-bhb-documents`.
-- **Records are shared:** everyone who can sign in sees and edits the same offices, payments and documents.
+- **Roles:** Super admin (everything), Office manager and Sales come built in; more can be added. **Users & roles** sets, per role, each page to Hidden / View / Edit and turns components on or off (summary cards, Excel export/import, invoices, deleting, seeing every salesperson's commission). Branches (BHB, 111) are set per person. The server enforces the same rules on every request.
+- **Sales commission:** set the Sales person and Deal type (New / Renewal) on an office lease. Commission = the person's rate for that deal type × the whole contract value (rent over the lease, excluding VAT and deposit), counted in the month the lease starts.
 
 Environment variables:
 
@@ -26,18 +27,19 @@ Environment variables:
 | --- | --- |
 | `DATABASE_URL` | Postgres connection string (from Secret Manager in production) |
 | `GCS_BUCKET` | Cloud Storage bucket for uploaded documents |
-| `IAP_AUDIENCE` | `/projects/PROJECT_NUMBER/locations/REGION/services/SERVICE`; required in production, requests are refused without it |
+| `APP_PASSWORD` | Shared password for first setup only (signs in a temporary setup account while no Super admin exists) |
+| `SESSION_SECRET` | Optional key that signs sign-in cookies; falls back to `APP_PASSWORD`. Changing it signs everyone out |
 | `VINEXT_TRUST_PROXY` | Set to `1` in the Dockerfile so request URLs use Cloud Run's HTTPS address |
 
 Deploy a new version:
 
     gcloud run deploy bhb-dashboard --source . --region=us-east5 --project=apps14-483317
 
-Give another person access:
-
-    gcloud iap web add-iam-policy-binding --member=user:EMAIL --role=roles/iap.httpsResourceAccessor --region=us-east5 --resource-type=cloud-run --service=bhb-dashboard --project=apps14-483317
+Give another person access: open **Users & roles**, Add user, choose their role and branches and set a first password (at least 10 characters).
 
 ## Features to test
+- Sign in as each role (Super admin, Office manager, Sales) and check the menu, branches and buttons each one gets.
+- Sales commission by month for a salesperson, new and renewal rates.
 - Branch selection and separate summaries (BHB / 111).
 - Physical and virtual office lists; tenant, licence and lease details.
 - Income: rent, PRO services, VAT and deposits; expenses and checks.
