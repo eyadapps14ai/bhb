@@ -12,7 +12,7 @@ export const SUPER_ADMIN='super-admin';
 export const defaultRoles:Role[]=[
  {id:SUPER_ADMIN,name:'Super admin',pages:every<Level>('edit')(pages),components:every(true)(components)},
  {id:'office-manager',name:'Office manager',pages:{offices:'edit',contracts:'edit',enquiries:'edit',cash:'edit',documents:'edit',workbook:'edit',employees:'edit',whatsapp:'edit',sales:'view',users:'none'},components:{summary:true,export:true,invoices:true,delete:false,allCommissions:true}},
- {id:'sales',name:'Sales',pages:{offices:'view',contracts:'none',enquiries:'edit',cash:'none',documents:'none',workbook:'none',employees:'none',whatsapp:'edit',sales:'view',users:'none'},components:{summary:false,export:false,invoices:false,delete:false,allCommissions:false}},
+ {id:'sales',name:'Sales',pages:{offices:'view',contracts:'none',enquiries:'edit',cash:'none',documents:'none',workbook:'none',employees:'none',whatsapp:'edit',sales:'none',users:'none'},components:{summary:false,export:false,invoices:false,delete:false,allCommissions:false}},
 ];
 // Stored roles may predate a new page or component; anything unknown falls back to the default (or nothing).
 export function normaliseRole(role:Partial<Role>&{id:string}):Role{const base=defaultRoles.find(r=>r.id===role.id)||defaultRoles[2];if(role.id===SUPER_ADMIN)return {...defaultRoles[0]};const levels=['none','view','edit'];return {id:role.id,name:role.name||base.name,pages:Object.fromEntries(pages.map(([k])=>[k,levels.includes(role.pages?.[k] as string)?role.pages![k]:base.pages[k]])) as Record<Page,Level>,components:Object.fromEntries(components.map(([k])=>[k,typeof role.components?.[k]==='boolean'?role.components[k]:base.components[k]])) as Record<Component,boolean>};}

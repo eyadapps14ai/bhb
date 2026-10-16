@@ -138,5 +138,13 @@ CREATE TABLE IF NOT EXISTS tasks (
   data text NOT NULL
 );
 CREATE INDEX IF NOT EXISTS task_assignee ON tasks (owner, assignee);
+-- One-time data changes, each recorded so it never runs twice (a later change by an admin is kept).
+CREATE TABLE IF NOT EXISTS migrations (
+  id text PRIMARY KEY,
+  at text NOT NULL
+);
+-- Owner's decision (2026-10-17): the Sales role does not see the Sales commission page.
+UPDATE roles SET data = jsonb_set(data::jsonb, '{pages,sales}', '"none"')::text WHERE id = 'sales' AND NOT EXISTS (SELECT 1 FROM migrations WHERE id = 'sales-role-hides-commission');
+INSERT INTO migrations (id, at) VALUES ('sales-role-hides-commission', now()::text) ON CONFLICT (id) DO NOTHING;
 COMMIT;
 `;
