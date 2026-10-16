@@ -1,4 +1,4 @@
-import {issuerSchema,invoiceSchema,invoiceTotals} from './invoices';
+import {issuerSchema,invoiceSchema,invoiceTotals,autoInvoiceBlock,invoiceToReuse} from './invoices';
 import {today} from './records';
 // Tax invoices: the one place that checks and saves an invoice (Accounts > Create invoice and the automatic ones).
 // Numbers run per branch and year without gaps: the next number is worked out inside the insert, and a unique index
@@ -13,7 +13,7 @@ export async function createInvoice(db:any,owner:string,body:unknown){
   const r:any=await db.prepare("INSERT INTO invoices(id,owner,office_id,data) SELECT ?,?,?,jsonb_set(?::jsonb,'{number}',to_jsonb(COALESCE((SELECT MAX(COALESCE((i.data::jsonb->>'number')::int,i.seq)) FROM invoices i WHERE i.owner=? AND COALESCE(i.data::jsonb->>'branch','BHB')=? AND substr(i.data::jsonb->>'issueDate',1,4)=?),0)+1))::text RETURNING (data::jsonb->>'number')::int AS number")
    .bind(id,owner,input.officeId,JSON.stringify(data),owner,branch,input.issueDate.slice(0,4)).first();
   return {id,url:'/invoice/'+id,number:r?.number};
- }catch(e){const m=String((e as Error).message);if(/invoice_owner_payment/.test(m))throw new Error(ALREADY);if(/invoice_branch_year_number/.test(m)&&attempt<5)continue;throw e}}
+ }catch(e){const m=String((e as Error).message);if(/invoice_owner_payment/.test(m))throw new Error(ALREADY);if(/invoice_branch_year_number/.test(m)){if(attempt<5)continue;throw new Error('Could not get the next invoice number because several invoices were issued at once. Please try again.')}throw e}}
 }
 export const ALREADY='An invoice has already been issued for this payment. Open it from Accounts.';
 const day=(iso:string)=>new Date(iso+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
@@ -28,6 +28,17 @@ export function invoiceFor(payment:any,office:any,issueDate:string){
  return {officeId:payment.officeId,paymentId:payment.id,issueDate,supplyDate:supply,buyerName:office.company||payment.party,buyerAddress:office.billingAddress||office.location||'United Arab Emirates',buyerTrn:office.trn||'',
   description:[what+' · '+office.code,(payment.description||'').replace(' · '+office.code,''),office.start&&office.end?'Lease '+day(office.start)+' to '+day(office.end):''].filter(Boolean).join(' · ').slice(0,2000),quantity:1,unitPrice:payment.amount,discount:0,vatRate:rate,notes:'Issued automatically for payment '+payment.reference+'.'};
 }
-// A hand-made invoice with no payment link for the same office and amount within 45 days probably covers this payment.
-export function invoicedByHand(invoices:any[],payment:any){const when=Date.parse((payment.actual||payment.due)+'T00:00:00Z');return invoices.find(i=>!i.paymentId&&i.officeId===payment.officeId&&Math.abs((i.totals?.net||0)-payment.amount)<0.01&&Math.abs(Date.parse((i.supplyDate||i.issueDate)+'T00:00:00Z')-when)<=45*864e5)}
 export {receivedForInvoice} from './invoices';
+const BLOCKED={vat:'its VAT does not match the lease VAT rate; issue this invoice by hand',hand:'this lease has an invoice made by hand in its current term; issue its invoices by hand'};
+// The automatic invoice for one received payment: skipped with a reason (VAT mismatch, lease invoiced by hand),
+// or the invoice of a bounced or cancelled payment it replaces is moved to it, or a new invoice is issued.
+export async function autoInvoice(db:any,owner:string,payment:any,office:any,on:string):Promise<{id?:string;url?:string;reused?:boolean;skipped?:string}>{
+ const rows=((await db.prepare('SELECT id,data FROM invoices WHERE owner=? AND office_id=?').bind(owner,payment.officeId).all()).results as any[]).map(r=>({...JSON.parse(r.data),id:r.id,officeId:payment.officeId}));
+ if(rows.some(i=>i.paymentId===payment.id))return {skipped:'already invoiced'};
+ const block=autoInvoiceBlock(payment,office,rows);if(block==='vat'){const rate=Number(office.vat)||0;return {skipped:payment.reference+': VAT is '+aed(payment.vatAmount||0)+' but the lease rate of '+rate+'% gives '+aed(Math.round(payment.amount*rate)/100)+'; issue this invoice by hand'}}if(block)return {skipped:payment.reference+': '+BLOCKED[block]};
+ const linked=rows.map(i=>i.paymentId).filter(Boolean),statuses=new Map<string,string>();
+ for(const pid of linked){const r:any=await db.prepare('SELECT data FROM payments WHERE id=? AND owner=?').bind(pid,owner).first();if(r)statuses.set(pid,JSON.parse(r.data).status)}
+ const reuse=invoiceToReuse(payment,rows,pid=>statuses.get(pid));
+ if(reuse){const moved:any=await db.prepare("UPDATE invoices SET data=(jsonb_set(jsonb_set(jsonb_set(data::jsonb,'{paymentId}',to_jsonb(?::text)),'{payment}',?::jsonb),'{replacedPayments}',COALESCE(data::jsonb->'replacedPayments','[]'::jsonb)||jsonb_build_array(?::text)))::text WHERE id=? AND owner=? AND data::jsonb->>'paymentId'=? RETURNING id").bind(payment.id,JSON.stringify(payment),(statuses.get(reuse.paymentId)||'').toLowerCase()+' payment '+(reuse.payment?.reference||reuse.paymentId),reuse.id,owner,reuse.paymentId).first();if(moved)return {id:reuse.id,url:'/invoice/'+reuse.id,reused:true}}
+ const made=await createInvoice(db,owner,invoiceFor(payment,office,on));return made;
+}
