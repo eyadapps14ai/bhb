@@ -364,3 +364,33 @@ table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-
 @media(max-width:1300px){.hub-dock{-webkit-mask-image:linear-gradient(90deg,#000 90%,transparent);mask-image:linear-gradient(90deg,#000 90%,transparent)}.hub-dock .hub-app:last-child{margin-right:28px}}
 @media(max-width:650px){.hub-dock .hub-app{flex:0 0 74px;height:74px}}
 .hub-dock{gap:6px}.hub-dock .hub-app{flex:1 0 72px;padding:9px 4px 8px}.hub-dock .hub-app-label{font-size:11.5px}
+/* Hub menu: a bar on the right edge. Collapsed it shows each tile's icon, badge and short name; it slides open from
+   the right to show full names and figures. Under 900px it is hidden behind a Menu button and slides in. */
+.app-main:has(.hub-rail){padding-right:88px}
+.hub-rail{position:fixed;top:0;right:0;bottom:0;z-index:40;width:88px;display:flex;flex-direction:column;background:#fffdf8;border-left:1px solid #e8dcc0;transition:width .25s ease,box-shadow .25s ease,transform .25s ease;overflow:hidden}
+.hub-rail.open{width:320px;box-shadow:-14px 0 44px #1d1a1226}
+.hub-rail-toggle{display:flex;align-items:center;justify-content:center;gap:8px;flex:none;height:64px;border:0;border-bottom:1px solid #efe7d4;background:none;font:inherit;font-size:13px;font-weight:600;color:#1f1d18;cursor:pointer}
+.hub-rail.open .hub-rail-toggle{justify-content:flex-start;padding:0 20px}.hub-rail-toggle:hover{background:#f6f1e6}
+.hub-rail:not(.open) .hub-rail-toggle{flex-direction:column;gap:3px;font-size:11px}
+.hub-rail-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:10px 8px;scrollbar-width:thin}
+.hub-rail-item{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:10px 12px;border:1.5px solid transparent;border-radius:16px;background:#f3f1ec;font:inherit;color:#1f1d18;text-align:left;cursor:pointer;transition:background .15s}
+.hub-rail-item:hover{background:#ebe7df}.hub-rail-item.is-hot{background:#f8eed8;border-color:#c79636}
+.hub-rail-icon{position:relative;display:grid;place-items:center;flex:none;width:28px;height:28px}
+.hub-rail-badge{position:absolute;top:-8px;right:-10px;min-width:19px;padding:1px 5px;border-radius:999px;background:#1f1d18;color:#f5e6c4;font-size:10.5px;font-weight:700;text-align:center;line-height:16px}
+.hub-rail-text{display:flex;flex-direction:column;min-width:0}.hub-rail-text b{font-weight:500;font-size:15px}.hub-rail-text small{font-size:12.5px;color:#6b665a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hub-rail-text .short{display:none}
+.hub-rail:not(.open) .hub-rail-item{flex-direction:column;justify-content:center;gap:5px;padding:9px 2px 8px;min-height:66px}
+.hub-rail:not(.open) .hub-rail-text{align-items:center}.hub-rail:not(.open) .hub-rail-text .full,.hub-rail:not(.open) .hub-rail-text small{display:none}.hub-rail:not(.open) .hub-rail-text .short{display:block;font-size:11px;white-space:nowrap}
+.hub-rail-backdrop{position:fixed;inset:0;z-index:39;border:0;background:#1d1a1229;cursor:default}
+.hub-rail-fab{display:none}
+@media(max-width:900px){
+ .app-main:has(.hub-rail){padding-right:0}
+ .hub-rail,.hub-rail.open{width:300px;transform:translateX(100%);visibility:hidden;transition:transform .25s ease,visibility 0s linear .25s}
+ .hub-rail.open{transform:none;visibility:visible;transition:transform .25s ease}
+ .hub-rail .hub-rail-toggle{flex-direction:row;justify-content:flex-start;padding:0 20px;font-size:13px}
+ .hub-rail .hub-rail-item{flex-direction:row;justify-content:flex-start;padding:10px 12px;min-height:58px}
+ .hub-rail .hub-rail-text{align-items:flex-start}.hub-rail .hub-rail-text .full{display:block}.hub-rail .hub-rail-text small{display:block}.hub-rail .hub-rail-text .short{display:none}
+ .hub-rail-fab{position:fixed;right:16px;bottom:16px;z-index:38;display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border:0;border-radius:999px;background:#1f1d18;color:#f5e6c4;font:inherit;font-size:15px;font-weight:600;box-shadow:0 8px 24px #1d1a1240;cursor:pointer}
+ .hub-rail-fab .hub-rail-badge{position:static;margin-left:2px;background:#f5e6c4;color:#1f1d18}
+}
+.hub-rail-icon>svg{width:22px;height:22px}.hub-rail.open .hub-rail-icon{margin-right:8px}@media(max-width:900px){.hub-rail .hub-rail-icon{margin-right:8px}}

@@ -1,6 +1,6 @@
 'use client';
-import {useState} from 'react';
-import {Plus,ChevronRight,X,Building2,FilePlus2,HandCoins,Briefcase,DoorOpen,Clock3,Ban,Monitor} from 'lucide-react';
+import {useEffect,useState} from 'react';
+import {Plus,ChevronRight,X,Building2,FilePlus2,HandCoins,Briefcase,DoorOpen,Clock3,Ban,Monitor,PanelRightOpen,PanelRightClose,LayoutGrid} from 'lucide-react';
 import {cashMetrics,type Office,type Payment} from '@/lib/records';
 import type {Enquiry} from '@/lib/enquiries';
 // Hub: the first page. A grid of tiles (one per action and page, a badge on the ones that need attention), then every
@@ -27,7 +27,8 @@ export default function Hub({offices,payments,enquiries,month,asof,branch,showMo
  showMoney:boolean;canCash:boolean;canEnquiries:boolean;canContracts:boolean;canLeaseEdit:boolean;canPay:boolean;
  isExpiring:(o:Office)=>boolean;onOpenOffice:(id:string)=>void;onStartLease:(o:Office)=>void;onNewLease:()=>void;
  onEditLease:(o:Office)=>void;onAddPayment:(o?:Office)=>void;onGo:(view:string)=>void}){
- const[filter,setFilter]=useState<Filter>('all'),[picked,setPicked]=useState('');
+ const[filter,setFilter]=useState<Filter>('all'),[picked,setPicked]=useState(''),[rail,setRail]=useState(false);
+ useEffect(()=>{if(!rail)return;const key=(e:KeyboardEvent)=>{if(e.key==='Escape')setRail(false)};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[rail]);
  const physical=offices.filter(o=>o.kind!=='Virtual'),virtual=offices.filter(o=>o.kind==='Virtual');
  const count=(list:Office[],s:State)=>list.filter(o=>stateOf(o)===s).length;
  const occupied=count(physical,'occupied'),vacant=count(physical,'vacant');
@@ -76,9 +77,15 @@ export default function Hub({offices,payments,enquiries,month,asof,branch,showMo
    {groups.length>0&&groups.every(([,list])=>!list.some(shown))&&<p className="notes">No offices match this filter.</p>}
    <ul className="hub-legend hub-legend-grid" aria-label="Colour key">{STATES.map(([s,l])=>{const I=ICON[s];return <li key={s}><span className={'hub-swatch is-'+s}/><I size={14} aria-hidden="true"/>{l}</li>})}<li><Monitor size={14} aria-hidden="true"/>Virtual</li><li><span className="hub-swatch is-occupied is-warn"/>Lease or licence ends within 30 days</li></ul>
   </section>
-  <nav className="hub-apps hub-dock" aria-label="Hub">{apps.map(a=>{const Icon=a.icon;return <button key={a.id} type="button" className={'hub-app'+(a.badge?' is-hot':'')} onClick={a.onClick} title={[a.label,a.badge,a.sub].filter(Boolean).join(' · ')} aria-label={a.label+(a.badge?', '+a.badge:'')}>
-   <span className="hub-app-top"><Icon size={30} strokeWidth={1.6} aria-hidden="true"/>{a.badge&&<span className="hub-badge" title={a.badge}>{a.badge.split(' ')[0]}</span>}</span>
-   <span className="hub-app-label">{a.short||a.label}{a.sub&&<small>{a.sub}</small>}</span></button>})}</nav>
+  {/* The tiles live in a bar on the right edge: icons with badges, sliding open (names and figures) from the right. */}
+  <aside className={'hub-rail'+(rail?' open':'')} aria-label="Hub menu">
+   <button type="button" className="hub-rail-toggle" aria-expanded={rail} onClick={()=>setRail(!rail)}>{rail?<PanelRightClose size={20}/>:<PanelRightOpen size={20}/>}<span>{rail?'Close':'Menu'}</span></button>
+   <nav className="hub-rail-list">{apps.map(a=>{const Icon=a.icon;return <button key={a.id} type="button" className={'hub-rail-item'+(a.badge?' is-hot':'')} onClick={()=>{setRail(false);a.onClick()}} title={[a.label,a.badge,a.sub].filter(Boolean).join(' · ')} aria-label={a.label+(a.badge?', '+a.badge:'')}>
+    <span className="hub-rail-icon"><Icon size={22} strokeWidth={1.6} aria-hidden="true"/>{a.badge&&<span className="hub-rail-badge">{a.badge.split(' ')[0]}</span>}</span>
+    <span className="hub-rail-text"><b className="full">{a.label}</b><b className="short">{a.short||a.label}</b>{a.sub&&<small>{a.badge?a.badge+' · ':''}{a.sub}</small>}</span></button>})}</nav>
+  </aside>
+  {rail&&<button type="button" className="hub-rail-backdrop" aria-label="Close menu" tabIndex={-1} onClick={()=>setRail(false)}/>}
+  <button type="button" className="hub-rail-fab" aria-label={'Open menu'+(apps.some(a=>a.badge)?', '+apps.filter(a=>a.badge).map(a=>a.label+' '+a.badge).join(', '):'')} onClick={()=>setRail(true)}><LayoutGrid size={20}/>Menu{apps.some(a=>a.badge)&&<span className="hub-rail-badge">{apps.filter(a=>a.badge).length}</span>}</button>
 
  </div>;
 }
