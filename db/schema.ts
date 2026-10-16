@@ -128,5 +128,13 @@ CREATE TABLE IF NOT EXISTS sign_in_failures (
   at text NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sign_in_failure_key ON sign_in_failures (key, at);
+-- To-dos a manager sends to a person (assignee = their user id); shown on that person's My dashboard.
+CREATE TABLE IF NOT EXISTS tasks (
+  id text PRIMARY KEY,
+  owner text NOT NULL,
+  assignee text NOT NULL,
+  data text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS task_assignee ON tasks (owner, assignee);
 COMMIT;
 `;
