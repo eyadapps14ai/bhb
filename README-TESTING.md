@@ -19,7 +19,8 @@ Local development needs no database setup: records are stored in an embedded Pos
 - **Database:** Neon Postgres. The connection string is stored in Secret Manager as `bhb-database-url`; tables are created automatically on first start.
 - **Documents:** Cloud Storage bucket `apps14-483317-bhb-documents`.
 - **Roles:** Super admin (everything), Office manager and Sales come built in; more can be added. **Users & roles** sets, per role, each page to Hidden / View / Edit and turns components on or off (summary cards, Excel export/import, invoices, deleting, seeing every salesperson's commission). Branches (BHB, 111) are set per person. The server enforces the same rules on every request.
-- **Sales commission:** set the Sales person and Deal type (New / Renewal) on an office lease. Commission = the person's rate for that deal type × the whole contract value (rent over the lease, excluding VAT and deposit), counted in the month the lease starts.
+- **Lease contracts:** every lease (current, ended, cancelled) with its contract value, invoices, payments, the cash received against it and what is still to collect. Create an invoice or add a payment from the contract.
+- **Employees and sales commission:** each employee has a Job; Sales employees carry their commission % for new leases and renewals. Choose the Sales employee in **Sold by** (and New / Renewal) on an office lease. Commission = that employee's rate × the whole contract value (rent over the lease, excluding VAT and deposit), counted in the month the lease starts. Click an employee to see their details, linked login and leases sold. Link a salesperson's login to their employee record in Users & roles so they see their own commission. The Sales commission page can count commission on the contract value (month the lease starts) or, as an option, on cash received (month each rent payment clears).
 
 Environment variables:
 
