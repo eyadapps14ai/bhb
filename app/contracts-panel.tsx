@@ -7,7 +7,7 @@ import {paymentTotal,type Office,type Payment} from '@/lib/records';
 import {invoiceNumber} from '@/lib/invoices';
 import type {SalesStaff} from './admin-panels';
 import {GroupedTable,type Column} from './board';
-const fmt=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:2}).format(n),fmt0=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:0}).format(n);
+const fmt=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:2}).format(n),fmt0=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:0}).format(n),n0=(n:number)=>new Intl.NumberFormat('en-AE',{maximumFractionDigits:0}).format(Math.round(n));
 const showDate=(s:string)=>s?new Date(s+'T00:00:00Z').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}):'—';
 export type Contract={key:string;office:Office;officeId:string;leaseId:string|null;status:'Current'|'Ended'|'Cancelled';cancelled:string;months:number;value:number;payments:Payment[];invoices:any[];received:number;pending:number;invoiced:number;balance:number};
 
@@ -39,10 +39,10 @@ export function ContractsPanel({offices,leases,payments,invoices,salesStaff,toda
   {id:'seller',label:'Sold by',cell:x=>seller(x.office.salesEmployeeId)||'—'},
   {id:'status',label:'Status',cell:x=><span className={'pill '+(x.status==='Current'?'good':x.status==='Cancelled'?'danger':'neutral')}>{x.status}</span>},
   {id:'term',label:'Term',cell:x=><>{showDate(x.office.start)} – {showDate(x.office.end)}<small>{x.months} mo</small></>},
-  {id:'value',label:'Contract value',numeric:true,cell:x=>fmt(x.value),total:l=>fmt(l.reduce((a,x)=>a+x.value,0))},
-  {id:'invoiced',label:'Invoiced',numeric:true,cell:x=>fmt(x.invoiced),total:l=>fmt(l.reduce((a,x)=>a+x.invoiced,0))},
-  {id:'received',label:'Received',numeric:true,cell:x=>fmt(x.received),total:l=>fmt(l.reduce((a,x)=>a+x.received,0))},
-  {id:'balance',label:'Balance',numeric:true,highlight:true,cell:x=>fmt(x.balance),total:l=>fmt(l.reduce((a,x)=>a+x.balance,0))},
+  {id:'value',label:'Contract value (AED)',numeric:true,cell:x=>n0(x.value),total:l=>n0(l.reduce((a,x)=>a+x.value,0))},
+  {id:'invoiced',label:'Invoiced',numeric:true,cell:x=>n0(x.invoiced),total:l=>n0(l.reduce((a,x)=>a+x.invoiced,0))},
+  {id:'received',label:'Received',numeric:true,cell:x=>n0(x.received),total:l=>n0(l.reduce((a,x)=>a+x.received,0))},
+  {id:'balance',label:'Balance',numeric:true,highlight:true,cell:x=>n0(x.balance),total:l=>n0(l.reduce((a,x)=>a+x.balance,0))},
  ];
  const grid=<GroupedTable title="Lease contracts" rows={all} rowKey={x=>x.key} columns={columns} search={x=>[x.office.code,x.office.company,x.office.leaseReference,seller(x.office.salesEmployeeId)].join(' ')} initialGroups={['status']} empty="Add the tenant and lease dates on an office to start a contract."
   filters={[{id:'all',label:'All',test:()=>true},{id:'current',label:'Current',test:x=>x.status==='Current'},{id:'ended',label:'Ended',test:x=>x.status==='Ended'},{id:'cancelled',label:'Cancelled',test:x=>x.status==='Cancelled'},{id:'balance',label:'Still to collect',test:x=>x.balance>0},{id:'uninvoiced',label:'Not invoiced',test:x=>!x.invoices.length}]}
