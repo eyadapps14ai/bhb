@@ -75,7 +75,7 @@ async function accessFor(userId: string): Promise<Access | null> {
   if (!user.active) return null;
   const role = (await loadRoles(db)).find((r) => r.id === user.roleId) ?? normaliseRole({ id: "sales" });
   const branches = role.id === SUPER_ADMIN ? [...BRANCHES] : (user.branches ?? []).filter((b: string) => (BRANCHES as readonly string[]).includes(b));
-  return { userId: row.id, name: user.name, email: row.email, roleId: role.id, roleName: role.name, branches, pages: role.pages, components: role.components };
+  return { userId: row.id, name: user.name, email: row.email, roleId: role.id, roleName: role.name, branches, pages: role.pages, components: role.components, employeeId: user.employeeId || "" };
 }
 
 function setupAccess(name: string): Access {

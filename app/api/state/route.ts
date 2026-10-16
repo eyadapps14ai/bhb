@@ -7,16 +7,17 @@ export async function GET(req:Request){try{const{db,owner,user}=await context(re
 const rows=(r:{results:unknown[]})=>r.results as Row[],inBranch=(b?:string)=>user.branches.includes(b||'BHB'),parse=(r:Row)=>({...JSON.parse(r.data),id:r.id});
 const officeList=rows(offices).map(parse).filter(o=>inBranch(o.branch)),ids=new Set(officeList.map(o=>o.id));
 const money=can(user,'cash')||can(user,'workbook'),people=rows(users).map(r=>({...JSON.parse(r.data),id:r.id,email:r.email}));
-// Staff names for the Sales person field and commission (inactive kept for past deals); rates only for those allowed to see commissions.
+// Sales employees: names for the Sold by field and the commission page (inactive kept for past deals);
+// rates only for those allowed to see every commission, or for the salesperson's own record.
 const seeAll=has(user,'allCommissions')||can(user,'users');
-const team=people.map(p=>({id:p.id,name:p.name,roleId:p.roleId,active:!!p.active,...(seeAll||p.id===user.userId?{commissionNew:p.commissionNew??DEFAULT_RATES.commissionNew,commissionRenewal:p.commissionRenewal??DEFAULT_RATES.commissionRenewal}:{})}));
-return Response.json({me:user,team,
+const staff=rows(employees).map(parse),salesStaff=staff.filter(e=>e.job==='Sales').map(e=>({id:e.id,name:e.name,branch:e.branch,active:e.status!=='Inactive',...(seeAll||(user.employeeId&&e.id===user.employeeId)?{commissionNew:e.commissionNew??DEFAULT_RATES.commissionNew,commissionRenewal:e.commissionRenewal??DEFAULT_RATES.commissionRenewal}:{})}));
+return Response.json({me:user,salesStaff,
 offices:officeList,
 payments:money?rows(payments).map(parse).filter(p=>p.officeId?ids.has(p.officeId):inBranch(p.branch)):[],
 documents:can(user,'documents')||can(user,'offices')?(docs.results as {officeId:string}[]).filter(d=>ids.has(d.officeId)):[],
 leases:can(user,'offices')||can(user,'sales')?rows(leases).filter(r=>ids.has(r.officeId!)).map(parse):[],
 invoices:money?rows(invoices).filter(r=>ids.has(r.officeId!)).map(r=>({...JSON.parse(r.data),id:r.id,seq:r.seq})):[],
 issuers:money?rows(issuers).map(r=>JSON.parse(r.data)).filter(i=>inBranch(i.branch)):[],
-employees:can(user,'employees')?rows(employees).map(parse).filter(e=>inBranch(e.branch)):[],
+employees:can(user,'employees')?staff.filter(e=>inBranch(e.branch)):[],
 requests:can(user,'employees')?rows(requests).map(parse).filter(r=>inBranch(r.branch)):[],
-...(can(user,'users')?{people:people.map(({id,name,email,roleId,branches,active,commissionNew,commissionRenewal})=>({id,name,email,roleId,branches:branches||[],active,commissionNew:commissionNew??DEFAULT_RATES.commissionNew,commissionRenewal:commissionRenewal??DEFAULT_RATES.commissionRenewal})),roles:await loadRoles(db)}:{})});}catch(e){return failure(e);}}
+...(can(user,'users')?{people:people.map(({id,name,email,roleId,branches,active,employeeId})=>({id,name,email,roleId,branches:branches||[],active,employeeId:employeeId||''})),staffList:staff.map(({id,name,job,branch})=>({id,name,job:job||'Other',branch})),roles:await loadRoles(db)}:{})});}catch(e){return failure(e);}}
