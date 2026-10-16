@@ -21,4 +21,4 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
   const created:string[]=[],skipped:string[]=[];
   for(const p of due){try{const r=await autoInvoice(db,owner,p,offices.get(p.officeId),on);if(r.id)created.push(r.id);else if(r.skipped)skipped.push(r.skipped)}catch(e){skipped.push(p.reference+': '+(e as Error).message)}}
   return Response.json({created:created.length,skipped:skipped.length,notes:skipped.slice(0,5)});}
- const input=invoiceSchema.parse(body);await checkOffice(db,owner,user,input.officeId);return Response.json(await createInvoice(db,owner,input));}catch(e){return failure(e);}}
+ const input=invoiceSchema.parse(body);if(input.officeId)await checkOffice(db,owner,user,input.officeId);else{const row:any=await db.prepare('SELECT data FROM customers WHERE id=? AND owner=?').bind(input.customerId,owner).first();if(!row)throw new Error('Customer not found.');checkBranch(user,JSON.parse(row.data).branch||'BHB')}return Response.json(await createInvoice(db,owner,input));}catch(e){return failure(e);}}

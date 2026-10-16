@@ -138,6 +138,14 @@ CREATE TABLE IF NOT EXISTS tasks (
   data text NOT NULL
 );
 CREATE INDEX IF NOT EXISTS task_assignee ON tasks (owner, assignee);
+-- Customers who are not (or not only) tenants, e.g. PRO services clients; tenants are customers through their offices.
+CREATE TABLE IF NOT EXISTS customers (
+  id text PRIMARY KEY,
+  owner text NOT NULL,
+  data text NOT NULL
+);
+-- An invoice is for an office (a tenant) or for a customer without an office.
+ALTER TABLE invoices ALTER COLUMN office_id DROP NOT NULL;
 -- One-time data changes, each recorded so it never runs twice (a later change by an admin is kept).
 CREATE TABLE IF NOT EXISTS migrations (
   id text PRIMARY KEY,
