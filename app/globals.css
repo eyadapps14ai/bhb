@@ -353,3 +353,14 @@ table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-
 @media(max-width:650px){.hub-dock{bottom:8px;padding:8px;border-radius:18px}.hub-dock .hub-app{flex:0 0 88px;height:84px;padding:10px;border-radius:14px}.hub-dock .hub-app-label{font-size:12px}.hub-dock .hub-app-top>svg{width:20px;height:20px}}
 .hub-room .hub-room-top{display:flex;font-size:inherit;overflow:visible;white-space:normal;color:inherit}.hub-room-top b{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal}
 .hub-room-top b{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip}
+.hub-dock{flex-wrap:wrap}.hub-dock .hub-app{flex:1 1 74px;height:86px;padding:11px 10px 10px}.hub-dock .hub-app-label{font-size:12.5px}.hub-dock .hub-app-top{gap:4px}.hub-dock .hub-badge{padding:2px 6px;font-size:10.5px}
+@media(max-width:650px){.hub-dock{flex-wrap:nowrap;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}.hub-dock .hub-app{flex:0 0 78px;height:80px}.hub-dock .hub-app:last-child{margin-right:24px}}
+.hub-dock .hub-app{min-width:0}.hub-dock .hub-badge{min-width:20px;text-align:center}
+/* Nav bar as a tab bar: icon centred over a short label, one row; scrolls sideways (with a fade hint) when narrow */
+.hub-dock{flex-wrap:nowrap}
+.hub-dock .hub-app{flex:1 0 78px;height:78px;padding:10px 6px 9px;align-items:center;text-align:center}
+.hub-dock .hub-app-top{position:relative;justify-content:center;width:100%}.hub-dock .hub-badge{position:absolute;top:-5px;right:4px}
+.hub-dock .hub-app-label{align-items:center;font-size:12px;white-space:nowrap}
+@media(max-width:1300px){.hub-dock{-webkit-mask-image:linear-gradient(90deg,#000 90%,transparent);mask-image:linear-gradient(90deg,#000 90%,transparent)}.hub-dock .hub-app:last-child{margin-right:28px}}
+@media(max-width:650px){.hub-dock .hub-app{flex:0 0 74px;height:74px}}
+.hub-dock{gap:6px}.hub-dock .hub-app{flex:1 0 72px;padding:9px 4px 8px}.hub-dock .hub-app-label{font-size:11.5px}

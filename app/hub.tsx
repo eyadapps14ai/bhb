@@ -54,12 +54,13 @@ export default function Hub({offices,payments,enquiries,month,asof,branch,showMo
   </aside>;
  const tip=(o:Office)=>[o.code,STATES.find(([s])=>s===stateOf(o))![1],o.company,o.end&&'Lease ends '+day(o.end),showMoney&&o.rent?aed(yearly(o))+' a year':'',o.area?o.area+' sq ft':'',o.desks?o.desks+' desks':''].filter(Boolean).join(' · ');
  // One tile per action and page; the figure under the label and the badge come from this branch's records.
- type App={id:string;label:string;icon:React.ElementType;sub?:string;badge?:string;onClick:()=>void};
+ type App={id:string;label:string;short?:string;icon:React.ElementType;sub?:string;badge?:string;onClick:()=>void};
+ const SHORT_LABEL:Record<string,string>={offices:'Offices',contracts:'Leases',cash:'Cash',sales:'Sales',users:'Users','add-payment':'Payment'};
  const sub:Record<string,string|undefined>={offices:occupied+' of '+physical.length+' let',contracts:ending.length?ending.length+' ending in 60 days':'None ending soon',enquiries:enquiries.length+' in the inbox',cash:m&&showMoney?aed(m.cashIn)+' in this month':undefined};
  const badge:Record<string,string|undefined>={enquiries:fresh.length?fresh.length+' new':undefined,cash:m?.overdue?m.overdue+' overdue':undefined,contracts:ending.length?ending.length+' soon':undefined};
  const apps:App[]=[...(canLeaseEdit?[{id:'new-lease',label:'New lease',icon:FilePlus2,sub:vacant?vacant+' vacant '+(vacant===1?'office':'offices'):'No vacant office',onClick:onNewLease}]:[]),
   ...(canPay?[{id:'add-payment',label:'Add payment',icon:HandCoins,sub:m&&showMoney?aed(m.pending)+' pending':undefined,onClick:()=>onAddPayment()}]:[]),
-  ...pages.map(([id,label,icon])=>({id,label,icon,sub:sub[id],badge:badge[id],onClick:()=>onGo(id)}))];
+  ...pages.map(([id,label,icon])=>({id,label,icon,sub:sub[id],badge:badge[id],onClick:()=>onGo(id)}))].map(a=>({...a,short:SHORT_LABEL[a.id]}));
  return <div className="hub">
 
 
@@ -75,9 +76,9 @@ export default function Hub({offices,payments,enquiries,month,asof,branch,showMo
    {groups.length>0&&groups.every(([,list])=>!list.some(shown))&&<p className="notes">No offices match this filter.</p>}
    <ul className="hub-legend hub-legend-grid" aria-label="Colour key">{STATES.map(([s,l])=>{const I=ICON[s];return <li key={s}><span className={'hub-swatch is-'+s}/><I size={14} aria-hidden="true"/>{l}</li>})}<li><Monitor size={14} aria-hidden="true"/>Virtual</li><li><span className="hub-swatch is-occupied is-warn"/>Lease or licence ends within 30 days</li></ul>
   </section>
-  <nav className="hub-apps hub-dock" aria-label="Hub">{apps.map(a=>{const Icon=a.icon;return <button key={a.id} type="button" className={'hub-app'+(a.badge?' is-hot':'')} onClick={a.onClick}>
-   <span className="hub-app-top"><Icon size={30} strokeWidth={1.6} aria-hidden="true"/>{a.badge&&<span className="hub-badge">{a.badge}</span>}</span>
-   <span className="hub-app-label">{a.label}{a.sub&&<small>{a.sub}</small>}</span></button>})}</nav>
+  <nav className="hub-apps hub-dock" aria-label="Hub">{apps.map(a=>{const Icon=a.icon;return <button key={a.id} type="button" className={'hub-app'+(a.badge?' is-hot':'')} onClick={a.onClick} title={[a.label,a.badge,a.sub].filter(Boolean).join(' · ')} aria-label={a.label+(a.badge?', '+a.badge:'')}>
+   <span className="hub-app-top"><Icon size={30} strokeWidth={1.6} aria-hidden="true"/>{a.badge&&<span className="hub-badge" title={a.badge}>{a.badge.split(' ')[0]}</span>}</span>
+   <span className="hub-app-label">{a.short||a.label}{a.sub&&<small>{a.sub}</small>}</span></button>})}</nav>
 
  </div>;
 }
