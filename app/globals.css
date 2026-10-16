@@ -403,3 +403,4 @@ table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-
 .schedule-table td,.schedule-table th{padding:8px 10px!important}.schedule-table tfoot th{font-size:13.5px;text-align:left}.schedule-table tfoot th.numeric{text-align:right}
 .schedule-note{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0;font-size:13.5px;color:#4a463e}.schedule-note.warn{color:#9a3a2f}.schedule-note .text-button{display:inline-flex;align-items:center;gap:4px;padding:0}
 .schedule-note{flex-wrap:nowrap;align-items:flex-start}.schedule-note svg{flex:none;margin-top:2px}
+.lease-room{color:#4a463e}.lease-room b{color:#1f1d18}.lease-room.over,.lease-room.over b{color:#9a3a2f}

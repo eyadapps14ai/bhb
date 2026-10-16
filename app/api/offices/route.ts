@@ -1,5 +1,6 @@
 import {z} from 'zod';
-import {officeSchema,paymentSchema} from '@/lib/records';
+import {officeSchema,paymentSchema,leaseRoom} from '@/lib/records';
+const aedText=(n:number)=>'AED '+new Intl.NumberFormat('en-AE',{maximumFractionDigits:2}).format(n);
 import {can} from '@/lib/access';
 import {context,failure,checkOffice,checkBranch} from '@/lib/server-records';
 // A lease may arrive with a payment schedule: one pending rent payment per row, saved together with the office.
@@ -12,6 +13,8 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
  if(plan?.on&&plan.rows.length){
   if(!can(user,'cash','edit'))throw new Error('Saving a payment schedule needs edit rights on Cash flow. Untick the schedule or ask an admin.');
   if(!data.company||!data.start||!data.end)throw new Error('Add the tenant and lease dates before creating a payment schedule.');
+  const existingRows:any[]=data.id?((await db.prepare('SELECT data FROM payments WHERE owner=? AND office_id=?').bind(owner,id).all()).results||[]):[];const room=leaseRoom(data,existingRows.map(r=>JSON.parse(r.data)),id),planned=plan.rows.reduce((a,r)=>a+r.amount,0);
+  if(room.value>0&&planned>room.left+0.5)throw new Error('The schedule adds '+aedText(planned)+' of rent but the lease is worth '+aedText(room.value)+(room.used?' and '+aedText(room.used)+' is already recorded':'')+'. Lower the amounts or press Recalculate.');
   const n=plan.rows.length,today=new Date().toISOString().slice(0,10),base=(data.leaseReference||data.code).slice(0,90);
   for(const[i,r]of plan.rows.entries()){
    let reference=base+'-'+(i+1)+'/'+n;
