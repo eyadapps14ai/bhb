@@ -117,10 +117,16 @@ CREATE TABLE IF NOT EXISTS oauth_grants (
   access_hash text NOT NULL UNIQUE,
   access_expires text NOT NULL,
   refresh_hash text NOT NULL UNIQUE,
+  prev_refresh_hash text NOT NULL DEFAULT '',
   refresh_expires text NOT NULL,
   created text NOT NULL,
   last_used text NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS oauth_grant_user ON oauth_grants (user_id);
+CREATE TABLE IF NOT EXISTS sign_in_failures (
+  key text NOT NULL,
+  at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sign_in_failure_key ON sign_in_failures (key, at);
 COMMIT;
 `;

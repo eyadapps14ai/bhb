@@ -10,6 +10,8 @@ import { accessFor } from "./auth";
 // callback addresses only, so no other application can obtain a token.
 export const ACCESS_SECONDS = 60 * 60;
 const REFRESH_SECONDS = 30 * 24 * 60 * 60;
+// A connection lasts at most 90 days from the sign-in, however often it refreshes; then Claude asks again.
+const GRANT_SECONDS = 90 * 24 * 60 * 60;
 const CODE_SECONDS = 5 * 60;
 export const SCOPE = "dashboard.read";
 const HOSTED = ["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback"];
@@ -58,19 +60,16 @@ export async function getClient(db: Database, id: string): Promise<Client | null
 
 export async function createCode(db: Database, code: Code) {
   const value = secret();
-  await db.prepare("DELETE FROM oauth_codes WHERE expires<?").bind(new Date().toISOString()).run();
   await db.prepare("INSERT INTO oauth_codes (hash,data,expires) VALUES (?,?,?)").bind(digest(value), JSON.stringify(code), later(CODE_SECONDS)).run();
   return value;
 }
 
-async function issue(db: Database, userId: string, clientId: string, grantId?: string) {
-  const access = secret(), refresh = secret(), now = new Date().toISOString();
-  if (grantId) {
-    await db.prepare("UPDATE oauth_grants SET access_hash=?,access_expires=?,refresh_hash=?,refresh_expires=? WHERE id=?").bind(digest(access), later(ACCESS_SECONDS), digest(refresh), later(REFRESH_SECONDS), grantId).run();
-  } else {
-    await db.prepare("INSERT INTO oauth_grants (id,user_id,client_id,access_hash,access_expires,refresh_hash,refresh_expires,created,last_used) VALUES (?,?,?,?,?,?,?,?,?)").bind(randomUUID(), userId, clientId, digest(access), later(ACCESS_SECONDS), digest(refresh), later(REFRESH_SECONDS), now, "").run();
-  }
-  return { access_token: access, token_type: "Bearer", expires_in: ACCESS_SECONDS, refresh_token: refresh, scope: SCOPE };
+const tokens = (access: string, refresh: string) => ({ access_token: access, token_type: "Bearer", expires_in: ACCESS_SECONDS, refresh_token: refresh, scope: SCOPE });
+
+async function issue(db: Database, userId: string, clientId: string) {
+  const access = secret(), refresh = secret();
+  await db.prepare("INSERT INTO oauth_grants (id,user_id,client_id,access_hash,access_expires,refresh_hash,refresh_expires,created,last_used) VALUES (?,?,?,?,?,?,?,?,?)").bind(randomUUID(), userId, clientId, digest(access), later(ACCESS_SECONDS), digest(refresh), later(REFRESH_SECONDS), new Date().toISOString(), "").run();
+  return tokens(access, refresh);
 }
 
 export class GrantError extends Error {}
@@ -87,10 +86,21 @@ export async function exchangeCode(db: Database, input: { code: string; clientId
   return issue(db, code.userId, code.clientId);
 }
 
+/** Rotates the refresh token. Presenting an already-rotated one means a copy exists, so the connection is closed. */
 export async function refresh(db: Database, token: string, clientId: string) {
-  const row = await db.prepare("SELECT id,user_id FROM oauth_grants WHERE refresh_hash=? AND client_id=? AND refresh_expires>?").bind(digest(token), clientId, new Date().toISOString()).first<{ id: string; user_id: string }>();
-  if (!row || !(await accessFor(row.user_id))) throw new GrantError("The refresh token is invalid or has expired.");
-  return issue(db, row.user_id, clientId, row.id);
+  const hash = digest(token), now = new Date().toISOString();
+  const row = await db.prepare("SELECT id,user_id,refresh_hash,refresh_expires,created FROM oauth_grants WHERE (refresh_hash=? OR prev_refresh_hash=?) AND client_id=?").bind(hash, hash, clientId).first<{ id: string; user_id: string; refresh_hash: string; refresh_expires: string; created: string }>();
+  if (!row) throw new GrantError("The refresh token is invalid or has expired.");
+  const end = new Date(Date.parse(row.created) + GRANT_SECONDS * 1000).toISOString();
+  if (row.refresh_hash !== hash || row.refresh_expires <= now || end <= now || !(await accessFor(row.user_id))) {
+    await db.prepare("DELETE FROM oauth_grants WHERE id=?").bind(row.id).run();
+    throw new GrantError(row.refresh_hash !== hash ? "This refresh token was already used, so the connection was closed. Connect again." : "The connection has expired. Connect again.");
+  }
+  const access = secret(), next = secret(), until = later(REFRESH_SECONDS) < end ? later(REFRESH_SECONDS) : end;
+  // Compare-and-swap: of two refreshes racing with the same token, only one wins.
+  const swapped = await db.prepare("UPDATE oauth_grants SET access_hash=?,access_expires=?,refresh_hash=?,prev_refresh_hash=?,refresh_expires=? WHERE id=? AND refresh_hash=? RETURNING id").bind(digest(access), later(ACCESS_SECONDS), digest(next), hash, until, row.id, hash).first();
+  if (!swapped) throw new GrantError("The refresh token was just used. Try again.");
+  return tokens(access, next);
 }
 
 /** The person behind a valid, unexpired access token, as they are now. */
@@ -106,8 +116,28 @@ export async function listGrants(db: Database, userId: string) {
   return rows.results.map((r) => ({ id: r.id, name: r.data ? JSON.parse(r.data).name : "Claude", created: r.created, lastUsed: r.last_used }));
 }
 
-export async function revokeGrant(db: Database, userId: string, id: string) {
-  if (!(await db.prepare("DELETE FROM oauth_grants WHERE id=? AND user_id=? RETURNING id").bind(id, userId).first())) throw new Error("Connection not found.");
+/** Every Claude connection with its owner, for people who manage Users & roles. */
+export async function listAllGrants(db: Database) {
+  const rows = await db.prepare("SELECT g.id,g.created,g.last_used,g.user_id,c.data AS client,u.email,u.data AS person FROM oauth_grants g LEFT JOIN oauth_clients c ON c.id=g.client_id LEFT JOIN users u ON u.id=g.user_id ORDER BY g.created DESC").all<{ id: string; created: string; last_used: string; user_id: string; client: string | null; email: string | null; person: string | null }>();
+  return rows.results.map((r) => ({ id: r.id, name: r.client ? JSON.parse(r.client).name : "Claude", created: r.created, lastUsed: r.last_used, userId: r.user_id, owner: r.person ? JSON.parse(r.person).name : r.email || "Removed user", roleId: r.person ? JSON.parse(r.person).roleId : "" }));
+}
+
+/** Removes one connection: the owner's own, or anyone's when ownerId is null (checked by the caller). */
+export async function revokeGrant(db: Database, ownerId: string | null, id: string) {
+  const row = ownerId === null
+    ? await db.prepare("DELETE FROM oauth_grants WHERE id=? RETURNING id").bind(id).first()
+    : await db.prepare("DELETE FROM oauth_grants WHERE id=? AND user_id=? RETURNING id").bind(id, ownerId).first();
+  if (!row) throw new Error("Connection not found.");
+}
+
+/** Clears expired codes and connections, and registrations older than a day that never connected. */
+export async function pruneOAuth(db: Database) {
+  const now = new Date().toISOString(), day = new Date(Date.now() - 864e5).toISOString();
+  await db.batch([
+    db.prepare("DELETE FROM oauth_codes WHERE expires<?").bind(now),
+    db.prepare("DELETE FROM oauth_grants WHERE refresh_expires<?").bind(now),
+    db.prepare("DELETE FROM oauth_clients WHERE created<? AND id NOT IN (SELECT client_id FROM oauth_grants)").bind(day),
+  ]);
 }
 
 // Discovery documents: protected resource metadata (RFC 9728) and authorization server metadata (RFC 8414).

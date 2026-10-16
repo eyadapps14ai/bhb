@@ -43,7 +43,7 @@ export const tools=[
  {name:'list_enquiries',title:'List website enquiries',description:'Enquiries sent from the BHB website, newest first: name, email, phone, service, message, status (New, Contacted, Closed) and date.',inputSchema:{type:'object',properties:{status:{type:'string',enum:['New','Contacted','Closed']},search:{type:'string'},limit:{type:'integer',minimum:1,maximum:200,default:50}},additionalProperties:false},annotations:readOnly},
 ] as const;
 
-export function isTool(name:unknown):name is ToolName{return typeof name==='string'&&name in inputs;}
+export function isTool(name:unknown):name is ToolName{return typeof name==='string'&&Object.hasOwn(inputs,name);}
 export async function callTool(c:ToolContext,name:ToolName,args:unknown):Promise<object>{
  const {user}=c,asofToday=today();
  if(name==='dashboard_summary'){const a=inputs.dashboard_summary.parse(args),asof=a.as_of||asofToday,month=a.month||asof.slice(0,7),br=branchesFor(user,a.branch);need(can(user,'offices')||money(user));
@@ -63,6 +63,7 @@ export async function callTool(c:ToolContext,name:ToolName,args:unknown):Promise
   const list=(await payments(c,br,new Set(codes.keys()))).filter(p=>(!a.direction||p.direction===a.direction)&&(!a.status||(a.status==='Overdue'?statusOf(p,asofToday)==='Overdue':p.status===a.status))&&(!office||(p.officeId?codes.get(p.officeId)?.toLowerCase()===office:false))&&(!a.due_from||p.due>=a.due_from)&&(!a.due_to||p.due<=a.due_to)&&(!q||[p.party,p.reference,p.bankName,p.description,p.notes].join(' ').toLowerCase().includes(q))).sort((x,y)=>x.due.localeCompare(y.due));
   const income=list.filter(p=>p.direction==='Income'),expense=list.filter(p=>p.direction==='Expense');
   return {count:list.length,shown:Math.min(list.length,a.limit),totals:{income:total(income),expenses:total(expense),net:Math.round((total(income)-total(expense))*100)/100},payments:list.slice(0,a.limit).map(p=>paymentOut(p,p.officeId?codes.get(p.officeId)??null:null,asofToday))};}
+ if(name!=='list_enquiries')throw new Error('Unknown tool.');
  const a=inputs.list_enquiries.parse(args);need(can(user,'enquiries'));const q=a.search?.toLowerCase();
  const rows=await c.db.prepare('SELECT id,created,status,data FROM enquiries ORDER BY created DESC LIMIT 1000').all<{id:string;created:string;status:string;data:string}>();
  const list=rows.results.map(r=>({...JSON.parse(r.data),id:r.id,created:r.created,status:r.status})).filter(e=>(!a.status||e.status===a.status)&&(!q||[e.name,e.email,e.phone,e.service,e.message].join(' ').toLowerCase().includes(q)));
