@@ -285,3 +285,33 @@ button.m-row{width:100%;background:none;border:0;border-bottom:1px solid var(--m
 .sales-panel{grid-template-columns:minmax(0,1fr)}.sales-panel .m-card,.sales-panel .m-three{margin:0}
 table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-size:0}.m-share td{padding:10px 8px!important}.m-share th{padding:10px 8px!important}.m-share-bar{gap:8px}.m-share-bar em{width:32px}.m-share-bar .m-bar{min-width:40px}.m-line{padding-left:20px}.m-group td:first-child{white-space:normal}}
 @media(max-width:650px){.lc-tools,.emp-tools{width:100%;margin-left:0}.lc-tools .seg,.emp-tools .seg{max-width:100%;overflow-x:auto;scrollbar-width:none}.lc-tools .seg button,.emp-tools .seg button{flex:none}.m-share th:nth-child(2),.m-share td:nth-child(2){display:none}.m-group button small{display:block}.m-share td:last-child{padding-left:4px!important}}
+
+/* Hub (app/hub.tsx): lease, cash and enquiry tiles, occupancy bar, and the office grid.
+   Vacant white, occupied grey, reserved amber, inactive hatched; every state also has a text label. */
+.hub{display:grid;gap:16px;margin-top:18px}
+.hub-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+.hub-tile{padding:18px 20px;display:flex;flex-direction:column;gap:12px}.hub-tile header{display:flex;align-items:center;gap:10px}.hub-tile h2{margin:0;font-size:16px}
+.hub-tile-icon{width:34px;height:34px;border-radius:10px;background:#faf1db;color:#85611a;display:grid;place-items:center}
+.hub-big{font-size:28px;font-weight:800;color:#202020;font-variant-numeric:tabular-nums;line-height:1.15}.hub-big small{font-size:14px;font-weight:500;color:#6f6a5c}
+.hub-tile ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:14px;color:#4a463c}.hub-tile ul b{color:#202020;font-variant-numeric:tabular-nums}.hub-tile li.hub-alert b{color:#aa3737}
+.hub-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}.hub-actions button{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.hub-occupancy,.hub-floor{padding:18px 20px}.hub-pick{margin-top:10px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:#fbfaf6}
+.hub-occ-head,.hub-floor-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;margin-bottom:12px}.hub-occ-head h2,.hub-floor-head h2{margin:0;font-size:17px}.hub-occ-head span{font-size:14px;color:#6f6a5c}.hub-occ-head b{color:#202020;font-size:16px}
+.hub-bar{display:flex;gap:2px;height:22px}.hub-seg{border:0;padding:0;min-width:6px;cursor:pointer}.hub-seg:first-child{border-radius:4px 0 0 4px}.hub-seg:last-child{border-radius:0 4px 4px 0}.hub-seg:only-child{border-radius:4px}.hub-seg:hover{filter:brightness(.92)}
+.is-occupied.hub-seg,.hub-swatch.is-occupied{background:#5d5a52}.is-reserved.hub-seg,.hub-swatch.is-reserved{background:#d6a13b}.is-vacant.hub-seg,.hub-swatch.is-vacant{background:#fff;box-shadow:inset 0 0 0 1.5px #b9b09a}
+.is-inactive.hub-seg,.hub-swatch.is-inactive{background:repeating-linear-gradient(45deg,#e7e2d6 0 3px,#fff 3px 6px);box-shadow:inset 0 0 0 1px #cfc7b3}
+.hub-legend{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13.5px;color:#4a463c}.hub-legend li{display:inline-flex;align-items:center;gap:7px}.hub-legend b{color:#202020}.hub-legend small{color:#7a7465}
+.hub-swatch{width:14px;height:14px;border-radius:4px;display:inline-block}.hub-swatch.is-warn{box-shadow:0 0 0 2px #aa3737}
+.hub-ending{margin-top:16px;border-top:1px solid #f1ece0;padding-top:12px}.hub-ending h3{display:flex;align-items:center;gap:7px;margin:0 0 6px;font-size:14px}.hub-ending ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}.hub-ending .text-button{font-size:14px;text-align:left}
+.hub-group{margin-top:14px}.hub-group h3{display:flex;align-items:baseline;gap:10px;margin:0 0 8px;font-size:14px;color:#2b2a26}.hub-group h3 small{font-weight:500;color:#7a7465}
+.hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+.hub-room{font:inherit;text-align:left;cursor:pointer;min-height:76px;border-radius:10px;padding:10px 11px;display:flex;flex-direction:column;gap:3px;border:0;transition:transform .12s,box-shadow .12s}
+.hub-room b{font-size:14.5px}.hub-room span{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hub-room small{font-size:11.5px;font-weight:700;margin-top:auto}
+.hub-room.is-vacant{background:#fff;color:#2b2a26;box-shadow:inset 0 0 0 1.5px #b9b09a}.hub-room.is-occupied{background:#5d5a52;color:#fff}.hub-room.is-reserved{background:#d6a13b;color:#202020}
+.hub-room.is-inactive{background:repeating-linear-gradient(45deg,#efebe2 0 4px,#fff 4px 8px);color:#6f6a5c;box-shadow:inset 0 0 0 1px #cfc7b3}
+.hub-room.is-warn{box-shadow:0 0 0 2px #aa3737}.hub-room.is-occupied.is-warn small{color:#ffd9d4}.hub-room.is-vacant.is-warn small,.hub-room.is-reserved.is-warn small{color:#aa3737}
+.hub-room.is-virtual{min-height:58px}.hub-room:hover{transform:translateY(-1px)}.hub-room.is-picked{outline:3px solid #202020;outline-offset:2px}
+.hub-legend-grid{margin-top:16px;padding-top:12px;border-top:1px solid #f1ece0}
+.hub-pick header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}.hub-pick h2{margin:0;font-size:18px}.hub-pick header small{color:#6f6a5c;font-size:13px}
+.hub-pick dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0 0 14px;font-size:14px}.hub-pick dt{color:#6f6a5c}.hub-pick dd{margin:0;color:#202020}
+@media(max-width:650px){.hub-big{font-size:24px}.hub-grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}.hub-occupancy,.hub-floor,.hub-tile{padding:14px}}
