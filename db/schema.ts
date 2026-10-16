@@ -91,5 +91,36 @@ CREATE TABLE IF NOT EXISTS enquiries (
 );
 CREATE INDEX IF NOT EXISTS enquiry_created ON enquiries (created);
 CREATE INDEX IF NOT EXISTS enquiry_sender ON enquiries (sender);
+CREATE TABLE IF NOT EXISTS claude_keys (
+  id text PRIMARY KEY,
+  user_id text NOT NULL,
+  hash text NOT NULL UNIQUE,
+  label text NOT NULL,
+  created text NOT NULL,
+  last_used text NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS claude_key_user ON claude_keys (user_id);
+CREATE TABLE IF NOT EXISTS oauth_clients (
+  id text PRIMARY KEY,
+  data text NOT NULL,
+  created text NOT NULL
+);
+CREATE TABLE IF NOT EXISTS oauth_codes (
+  hash text PRIMARY KEY,
+  data text NOT NULL,
+  expires text NOT NULL
+);
+CREATE TABLE IF NOT EXISTS oauth_grants (
+  id text PRIMARY KEY,
+  user_id text NOT NULL,
+  client_id text NOT NULL,
+  access_hash text NOT NULL UNIQUE,
+  access_expires text NOT NULL,
+  refresh_hash text NOT NULL UNIQUE,
+  refresh_expires text NOT NULL,
+  created text NOT NULL,
+  last_used text NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS oauth_grant_user ON oauth_grants (user_id);
 COMMIT;
 `;
