@@ -3,18 +3,21 @@ import type { Database } from "@/db";
 import type { Access } from "./access";
 import { accessFor } from "./auth";
 
-// OAuth 2.1 for Claude's connectors (claude.ai, Claude Desktop and mobile, Claude Code) to reach the MCP
-// endpoint as the person who signs in. Claude registers itself (RFC 7591), the person signs in and allows it
-// on /api/oauth/authorize, and Claude swaps the code (PKCE S256) for a one-hour access token and a refresh
-// token that is replaced on every refresh. Only token hashes are stored. Registration accepts Claude's own
-// callback addresses only, so no other application can obtain a token.
+// OAuth 2.1 for Claude's connectors (claude.ai, Claude Desktop and mobile, Claude Code) and ChatGPT's
+// connectors to reach the MCP endpoint as the person who signs in. The app registers itself (RFC 7591), the
+// person signs in and allows it on /api/oauth/authorize, and the app swaps the code (PKCE S256) for a one-hour
+// access token and a refresh token that is replaced on every refresh. Only token hashes are stored.
+// Registration accepts Claude's and ChatGPT's own callback addresses only, so no other application can
+// obtain a token. Every authorization response carries iss (RFC 9207), which ChatGPT relies on.
 export const ACCESS_SECONDS = 60 * 60;
 const REFRESH_SECONDS = 30 * 24 * 60 * 60;
 // A connection lasts at most 90 days from the sign-in, however often it refreshes; then Claude asks again.
 const GRANT_SECONDS = 90 * 24 * 60 * 60;
 const CODE_SECONDS = 5 * 60;
 export const SCOPE = "dashboard.read";
-const HOSTED = ["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback"];
+const HOSTED = ["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback", "https://chatgpt.com/connector_platform_oauth_redirect"];
+// ChatGPT also uses a per-connection callback, https://chatgpt.com/connector/oauth/{callback_id}.
+const CHATGPT_CALLBACK = /^https:\/\/chatgpt\.com\/connector\/oauth\/[A-Za-z0-9_-]{1,128}$/;
 const LOOPBACK = new Set(["localhost", "127.0.0.1"]);
 export type Client = { id: string; name: string; redirectUris: string[] };
 type Code = { clientId: string; redirectUri: string; challenge: string; userId: string; resource: string };
@@ -25,6 +28,15 @@ const later = (seconds: number) => new Date(Date.now() + seconds * 1000).toISOSt
 
 /** The MCP endpoint's canonical address, which is also the token audience (RFC 8707). */
 export const resourceFor = (origin: string) => `${origin}/api/mcp`;
+/** Whether a requested resource names this MCP server: its /api/mcp address, or the origin alone (ChatGPT may send that). */
+export function isOurResource(resource: string, origin: string) {
+  try {
+    const u = new URL(resource), plain = (u.origin + u.pathname).replace(/\/$/, "").toLowerCase();
+    return !u.hash && (plain === resourceFor(origin).toLowerCase() || plain === origin.toLowerCase());
+  } catch {
+    return false;
+  }
+}
 
 // Claude Code redirects to http://localhost:<any port>/callback, so loopback addresses match without the port.
 function loopback(uri: string) {
@@ -35,7 +47,7 @@ function loopback(uri: string) {
     return null;
   }
 }
-export const allowedRedirect = (uri: string) => HOSTED.includes(uri) || !!loopback(uri);
+export const allowedRedirect = (uri: string) => HOSTED.includes(uri) || CHATGPT_CALLBACK.test(uri) || !!loopback(uri);
 export function redirectMatches(client: Client, uri: string) {
   if (client.redirectUris.includes(uri)) return true;
   const asked = loopback(uri);
@@ -45,7 +57,8 @@ export function redirectMatches(client: Client, uri: string) {
   });
 }
 /** Where the code goes, in words for the consent screen. */
-export const destination = (uri: string) => (loopback(uri) ? "Claude Code on this computer (" + new URL(uri).host + ")" : "Claude (" + new URL(uri).host + ")");
+export const appName = (uri: string) => (new URL(uri).host === "chatgpt.com" ? "ChatGPT" : "Claude");
+export const destination = (uri: string) => (loopback(uri) ? "Claude Code on this computer (" + new URL(uri).host + ")" : appName(uri) + " (" + new URL(uri).host + ")");
 
 export async function registerClient(db: Database, name: string, redirectUris: string[]): Promise<Client> {
   const client = { id: randomUUID(), name: name.slice(0, 80) || "Claude", redirectUris };
@@ -75,13 +88,13 @@ async function issue(db: Database, userId: string, clientId: string) {
 export class GrantError extends Error {}
 
 /** Swaps a one-time code for tokens; the code is deleted on first use, whatever the outcome. */
-export async function exchangeCode(db: Database, input: { code: string; clientId: string; redirectUri: string; verifier: string; resource?: string }) {
+export async function exchangeCode(db: Database, origin: string, input: { code: string; clientId: string; redirectUri: string; verifier: string; resource?: string }) {
   const row = await db.prepare("DELETE FROM oauth_codes WHERE hash=? RETURNING data,expires").bind(digest(input.code)).first<{ data: string; expires: string }>();
   if (!row || row.expires < new Date().toISOString()) throw new GrantError("The sign-in code is invalid or has expired.");
   const code: Code = JSON.parse(row.data);
   if (code.clientId !== input.clientId || code.redirectUri !== input.redirectUri) throw new GrantError("The sign-in code was issued to another client.");
   if (digest(input.verifier) !== code.challenge) throw new GrantError("The PKCE code verifier does not match.");
-  if (input.resource && input.resource !== code.resource) throw new GrantError("The token is for another resource.");
+  if (input.resource && !isOurResource(input.resource, origin)) throw new GrantError("The token is for another resource.");
   if (!(await accessFor(code.userId))) throw new GrantError("This account is no longer active.");
   return issue(db, code.userId, code.clientId);
 }
@@ -151,6 +164,7 @@ export const serverMetadata = (origin: string) => ({
   response_types_supported: ["code"],
   grant_types_supported: ["authorization_code", "refresh_token"],
   code_challenge_methods_supported: ["S256"],
+  authorization_response_iss_parameter_supported: true,
   token_endpoint_auth_methods_supported: ["none"],
   scopes_supported: [SCOPE, "offline_access"],
 });
