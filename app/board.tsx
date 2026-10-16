@@ -1,8 +1,8 @@
 'use client';
 import {Fragment,useState,useSyncExternalStore} from 'react';
 import {ChevronDown,ChevronRight,Search,X} from 'lucide-react';
-// Building blocks for the "Board" layout that pages can offer next to their classic layout:
-// status cards that open a list in place, and a table with filter chips and group-by chips.
+// Building blocks for the "Analytical" layout that pages can offer next to their classic layout:
+// a table with filter chips and group-by chips.
 
 // Layout choice per page, kept in this browser (falls back to memory when storage is blocked).
 const memory=new Map<string,string>(),listeners=new Set<()=>void>();
@@ -15,14 +15,6 @@ export function useLayoutChoice<T extends string>(key:string,options:readonly T[
 }
 export function LayoutSwitch<T extends string>({value,onChange,options,label='Layout'}:{value:T;onChange:(v:T)=>void;options:readonly {value:T;label:string;icon?:React.ElementType}[];label?:string}){return <div className="seg layout-switch" role="group" aria-label={label}>{options.map(o=>{const Icon=o.icon;return <button key={o.value} type="button" aria-pressed={value===o.value} onClick={()=>onChange(o.value)}>{Icon&&<Icon size={16}/>}{o.label}</button>})}</div>}
 
-export type BoardCard={id:string;label:string;icon:React.ElementType;value:string;chip?:string;note?:string;tone?:'good'|'warn'|'danger';empty?:boolean};
-// A row of status cards; selecting one opens its list (renderPanel) under the row, selecting it again closes it.
-export function StatusCards({cards,open,onOpen,renderPanel}:{cards:BoardCard[];open:string|null;onOpen:(id:string|null)=>void;renderPanel:(id:string,close:()=>void)=>React.ReactNode}){
- const current=cards.find(c=>c.id===open);
- return <><div className="board-cards">{cards.map(c=>{const Icon=c.icon;return <button key={c.id} type="button" className={'board-card'+(c.tone?' '+c.tone:'')+(c.empty?' empty':'')} aria-expanded={open===c.id} aria-controls="board-panel" onClick={()=>onOpen(open===c.id?null:c.id)}><span className="board-card-top"><span className="board-icon"><Icon size={18}/></span>{c.chip&&<span className="board-chip">{c.chip}</span>}</span><strong className="board-value">{c.value}</strong>{c.note&&<span className="board-note">{c.note}</span>}<span className="board-label">{c.label}</span></button>})}</div>
-  {current&&<section id="board-panel" className="surface board-panel" aria-label={current.label}>{renderPanel(current.id,()=>onOpen(null))}</section>}</>;
-}
-export function PanelHead({icon:Icon,title,note,onClose}:{icon:React.ElementType;title:string;note?:string;onClose:()=>void}){return <div className="board-panel-head"><h3><span className="board-icon"><Icon size={18}/></span>{title}{note&&<small>{note}</small>}</h3><button type="button" className="icon-close" aria-label={'Close '+title} onClick={onClose}><X size={20}/></button></div>}
 
 export type Column<T>={id:string;label:string;numeric?:boolean;highlight?:boolean;cell:(row:T)=>React.ReactNode;total?:(rows:T[])=>React.ReactNode};
 export type Option<T>={id:string;label:string;test:(row:T)=>boolean};
