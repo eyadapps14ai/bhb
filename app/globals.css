@@ -315,3 +315,26 @@ table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-
 .hub-pick header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}.hub-pick h2{margin:0;font-size:18px}.hub-pick header small{color:#6f6a5c;font-size:13px}
 .hub-pick dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0 0 14px;font-size:14px}.hub-pick dt{color:#6f6a5c}.hub-pick dd{margin:0;color:#202020}
 @media(max-width:650px){.hub-big{font-size:24px}.hub-grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}.hub-occupancy,.hub-floor,.hub-tile{padding:14px}}
+/* Hub, tile style: one soft square tile per action and page (icon top, label bottom), a badge on tiles that need
+   attention; the office grid uses the same soft look (occupied light grey, vacant white, reserved amber). */
+.hub-apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:14px}
+.hub-app{font:inherit;color:#1f1d18;text-align:left;cursor:pointer;aspect-ratio:1/1;min-height:150px;max-height:200px;display:flex;flex-direction:column;justify-content:space-between;gap:10px;padding:20px 20px 18px;border:1.5px solid transparent;border-radius:22px;background:#f3f1ec;transition:background .15s,transform .15s,border-color .15s}
+.hub-app:hover{background:#ebe7df;transform:translateY(-1px)}.hub-app:focus-visible{outline:2px solid #1f1d18;outline-offset:3px}
+.hub-app-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.hub-app-top svg{color:#1f1d18}
+.hub-app-label{display:flex;flex-direction:column;gap:3px;font-size:18px;font-weight:500;letter-spacing:-.01em;line-height:1.2}
+.hub-app-label small{font-size:13px;font-weight:400;letter-spacing:0;color:#6b665a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hub-app.is-hot{background:#f8eed8;border-color:#c79636}.hub-app.is-hot:hover{background:#f4e6c7}
+.hub-badge{padding:4px 11px;border-radius:999px;background:#1f1d18;color:#f5e6c4;font-size:13px;font-weight:600;white-space:nowrap}
+.hub-floor{border-radius:24px;padding:22px 24px}.hub-floor-head h2{font-size:19px}.hub-occ-line{display:block;margin-top:4px;font-size:14px;color:#6b665a}.hub-occ-line b{color:#1f1d18}
+.hub-floor .hub-bar{height:10px;margin:2px 0 6px}.hub-floor .hub-seg{border-radius:0}.hub-floor .hub-seg:first-child{border-radius:5px 0 0 5px}.hub-floor .hub-seg:last-child{border-radius:0 5px 5px 0}.hub-floor .hub-seg:only-child{border-radius:5px}
+.hub-room{border-radius:16px;min-height:84px;padding:12px 13px}
+.hub-room.is-occupied,.is-occupied.hub-seg,.hub-swatch.is-occupied{background:#e2ded5;color:#1f1d18}
+.hub-room.is-occupied span{color:#4a463e}.hub-room.is-vacant{box-shadow:inset 0 0 0 1.5px #cfc8b8}.hub-room.is-reserved,.is-reserved.hub-seg,.hub-swatch.is-reserved{background:#f3dca6}
+.hub-room.is-occupied.is-warn small{color:#aa3737}.hub-room b{overflow-wrap:anywhere}
+.theme-modern .hub-floor{border-color:var(--m-line)}
+/* Side menu: small plain line icons */
+.side-nav .nav-icon{width:22px;height:22px;border-radius:0;background:none!important;box-shadow:none!important;color:inherit!important;transform:none!important}
+.side-nav .nav-icon svg{width:18px;height:18px;stroke-width:1.7}
+.side-nav .wa .nav-icon{color:#168a45!important}
+@media(max-width:650px){.hub-apps{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.hub-app{min-height:0;padding:14px 12px 12px;border-radius:18px}.hub-app-top svg{width:24px;height:24px}.hub-app-label{font-size:14.5px}.hub-app-label small{display:none}.hub-badge{padding:2px 7px;font-size:11px}.hub-floor{padding:16px}}
+.hub-app-top>svg{flex:none;width:30px;height:30px}@media(max-width:650px){.hub-app-top>svg{width:24px;height:24px}}
