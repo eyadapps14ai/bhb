@@ -4,7 +4,7 @@ import {getBucket} from './storage';
 import {can,type Access,type Page} from './access';
 import {ZodError} from 'zod';
 // All staff share one set of records; each person's role decides which pages and branches they can use.
-const SHARED_OWNER='bhb';
+export const SHARED_OWNER='bhb';
 export const DENIED='Your role does not allow this.';
 // Every route names the page it belongs to and whether it reads or changes it; branches are checked per record.
 export async function context(request:Request,page?:Page,level:'view'|'edit'='view'){const user=await getUser();if(!user)throw new Error('Sign in to access your records.');if(page&&!can(user,page,level))throw new Error(DENIED);if(request.method!=='GET'){const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)throw new Error('Request origin does not match.');}return{db:await openDb(),owner:SHARED_OWNER,bucket:getBucket(),user};}
