@@ -48,6 +48,9 @@ Give another person access: open **Users & roles**, Add user, choose their role 
 - PDF/JPG/PNG uploads linked to offices and payments.
 - Accounts: date-range reports, office reports, Excel import/export.
 - WhatsApp: prepares chats for manual sending only; automatic API sending is not connected.
+- Theme (side bar): Modern or Classic, kept per browser. In Modern every data page has an Overview (one big figure, three stats, a "needs you" strip and three cards) and an Analysis (Group by, share-of-largest bars, Export CSV). Classic keeps Overview / Analytical with the grouped table.
+- Employees: Employees | Requests tabs at the top; employees show as cards (Overview) or the grouped table (Analytical / Analysis).
+- Lease contracts: leases without a salesperson show "Set seller" (opens the lease form). In a new lease, Sold by is the first field; if nobody has the Sales job, the form says how to add one.
 
 ## Useful checks
     npx tsc --noEmit
