@@ -1,13 +1,14 @@
 'use client';
 import {useState} from 'react';
-import {CheckCircle2,Circle,ListTodo,Send,Trash2,CalendarClock,BadgePercent,ScrollText,FileText} from 'lucide-react';
+import {CheckCircle2,Circle,ListTodo,Send,Trash2,CalendarClock,TrendingUp,ScrollText,FileText} from 'lucide-react';
 import {toast} from 'sonner';
 import {can,type Access} from '@/lib/access';
 import type {Office} from '@/lib/records';
 import {salesDeals,DealTable,type SalesStaff,type Person} from './admin-panels';
 import {MHero} from './modern-kit';
 // My dashboard: what one person needs every day. Their to-dos (sent by a manager, with a badge in the menu until done),
-// the leases they sold and the renewals coming up, their commission, and their own requests. Managers also send to-dos.
+// the leases they sold (their sales, not their commission) and the renewals coming up, and their own requests.
+// Managers also send to-dos.
 export type Task={id:string;assignee:string;assigneeName:string;title:string;details:string;due:string;status:'Open'|'Done';createdBy:string;createdByName:string;created:string;doneAt:string};
 const fmt=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:0}).format(n);
 const day=(iso:string)=>iso?new Date(iso.slice(0,10)+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}):'';
@@ -24,8 +25,9 @@ export function MyDashboard({me,offices,leases,salesStaff,tasks,requests,people=
  const myTasks=tasks.filter(t=>t.assignee===me.userId).sort((a,b)=>(a.status===b.status?0:a.status==='Open'?-1:1)||(a.due||'9999').localeCompare(b.due||'9999')),open=myTasks.filter(t=>t.status==='Open');
  const sent=manager?tasks.filter(t=>t.assignee!==me.userId).sort((a,b)=>b.created.localeCompare(a.created)):[];
  const run=async(path:string,body:any,done:string)=>{setBusy(true);try{await api(path,body);await reload();toast.success(done);return true}catch(e){toast.error((e as Error).message);return false}finally{setBusy(false)}};
- const figures:[string,string,string][]=[[ 'Commission · '+new Date(month+'-01T00:00:00Z').toLocaleDateString('en-GB',{month:'long',timeZone:'UTC'}),fmt(sum(deals.filter(d=>d.start.slice(0,7)===month),'commission')),year+' so far '+fmt(sum(deals.filter(d=>d.start.slice(0,4)===year),'commission'))],
-  ['Contracts sold '+year,fmt(sum(deals.filter(d=>d.start.slice(0,4)===year),'value')),deals.filter(d=>d.start.slice(0,4)===year).length+' leases'],
+ const thisMonth=deals.filter(d=>d.start.slice(0,7)===month),thisYear=deals.filter(d=>d.start.slice(0,4)===year);
+ const figures:[string,string,string][]=[['Sales · '+new Date(month+'-01T00:00:00Z').toLocaleDateString('en-GB',{month:'long',timeZone:'UTC'}),fmt(sum(thisMonth,'value')),thisMonth.length+' lease'+(thisMonth.length===1?'':'s')+' starting this month'],
+  ['Sales '+year,fmt(sum(thisYear,'value')),thisYear.length+' lease'+(thisYear.length===1?'':'s')],
   ['Renewals in 90 days',String(renewals.length),renewals[0]?'Next: '+renewals[0].code+' on '+day(renewals[0].end):'None coming up'],
   ['Open to-dos',String(open.length),open.length?open.filter(t=>t.due&&t.due<today).length+' overdue':'Nothing waiting']];
  // Not linked to an employee (an owner or manager): the figures are about to-dos instead of sales.
@@ -37,7 +39,7 @@ export function MyDashboard({me,offices,leases,salesStaff,tasks,requests,people=
   </li>;
  return <div className="my-dash">
   {modern?<MHero label={figures[0][0]} value={figures[0][1]} text={<>{figures[0][2]}.{!mine&&!manager?' Your login is not linked to an employee record yet, so no leases count for you.':''}</>} stats={figures.slice(1).map(([label,value,sub])=>({label,value,sub}))}/>
-   :<div className="tiles">{figures.map(([label,value,sub],i)=><div key={label} className="tile static"><span className="tile-top"><span className="tile-label">{label}</span><span className="tile-icon">{[<BadgePercent key="a" size={16}/>,<ScrollText key="b" size={16}/>,<CalendarClock key="c" size={16}/>,<ListTodo key="d" size={16}/>][i]}</span></span><strong className="tile-value">{value}</strong><span className="tile-sub">{sub}</span></div>)}</div>}
+   :<div className="tiles">{figures.map(([label,value,sub],i)=><div key={label} className="tile static"><span className="tile-top"><span className="tile-label">{label}</span><span className="tile-icon">{[<TrendingUp key="a" size={16}/>,<ScrollText key="b" size={16}/>,<CalendarClock key="c" size={16}/>,<ListTodo key="d" size={16}/>][i]}</span></span><strong className="tile-value">{value}</strong><span className="tile-sub">{sub}</span></div>)}</div>}
   <div className={"my-grid"+(mine?"":" solo")}>
    <section className="surface my-card" aria-labelledby="my-todos"><div className="my-head"><h2 id="my-todos"><ListTodo size={18}/>My to-dos {open.length>0&&<span className="nav-badge">{open.length}</span>}</h2>{myTasks.some(t=>t.status==='Done')&&<button type="button" className="text-button" onClick={()=>setShowDone(!showDone)}>{showDone?'Hide done':'Show done'}</button>}</div>
     {myTasks.filter(t=>showDone||t.status==='Open').length?<ul className="my-tasks">{myTasks.filter(t=>showDone||t.status==='Open').map(t=>taskRow(t,true))}</ul>:<p className="notes">No to-dos for you right now.</p>}</section>
@@ -54,7 +56,7 @@ export function MyDashboard({me,offices,leases,salesStaff,tasks,requests,people=
     <div className="my-form-row"><select aria-label="To-do for" required value={todo.assignee} onChange={e=>setTodo({...todo,assignee:e.target.value})}><option value="">Who is it for?</option>{people.filter(p=>p.active&&p.id!==me.userId).map(p=><option key={p.id} value={p.id}>{p.name} · {p.email}</option>)}</select><input aria-label="To-do title" required placeholder="What needs doing" value={todo.title} onChange={e=>setTodo({...todo,title:e.target.value})}/><input aria-label="Due date" type="date" value={todo.due} onChange={e=>setTodo({...todo,due:e.target.value})}/></div>
     <textarea aria-label="To-do details" placeholder="Details (optional)" value={todo.details} onChange={e=>setTodo({...todo,details:e.target.value})}/><button className="primary" disabled={busy}><Send size={16}/>Send to-do</button></form>
    {sent.length>0&&<><h3 className="section-label">Sent <span className="count">{sent.filter(t=>t.status==='Open').length} open</span></h3><ul className="my-tasks">{sent.slice(0,20).map(t=>taskRow(t,false))}</ul></>}</section>}
-  {(mine||!manager)&&<section className="surface my-card" aria-labelledby="my-contracts"><div className="my-head"><h2 id="my-contracts"><ScrollText size={18}/>My contracts <span className="count">{deals.length}</span></h2><small>{seller?seller.commissionNew+'% on new leases · '+seller.commissionRenewal+'% on renewals':''}</small></div>
-   {deals.length?<DealTable deals={deals}/>:<p className="notes">{mine?'No leases with you as Sold by yet.':'Your login is not linked to an employee record yet. Ask an admin to link it in Users & roles.'}</p>}</section>}
+  {(mine||!manager)&&<section className="surface my-card" aria-labelledby="my-contracts"><div className="my-head"><h2 id="my-contracts"><ScrollText size={18}/>My contracts <span className="count">{deals.length}</span></h2><small>Contract value: rent over each lease, excl. VAT</small></div>
+   {deals.length?<DealTable deals={deals} hideCommission/>:<p className="notes">{mine?'No leases with you as Sold by yet.':'Your login is not linked to an employee record yet. Ask an admin to link it in Users & roles.'}</p>}</section>}
  </div>;
 }
