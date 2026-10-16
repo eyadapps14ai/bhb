@@ -1,6 +1,6 @@
 // Roles and permissions, shared by the server (enforcement) and the screens (what to show).
 export const BRANCHES=['BHB','111'] as const;
-export const pages=[['offices','Office portfolio'],['contracts','Lease contracts'],['enquiries','Enquiries'],['cash','Cash flow'],['documents','Documents'],['workbook','Accounts'],['employees','Employees'],['whatsapp','WhatsApp'],['sales','Sales commission'],['users','Users & roles']] as const;
+export const pages=[['offices','Office portfolio'],['contracts','Lease contracts'],['customers','Customers'],['enquiries','Enquiries'],['cash','Cash flow'],['documents','Documents'],['workbook','Accounts'],['employees','Employees'],['whatsapp','WhatsApp'],['sales','Sales commission'],['users','Users & roles']] as const;
 export const components=[['summary','Summary cards and branch table'],['export','Excel export and import'],['invoices','Create invoices'],['delete','Delete records'],['allCommissions','See every salesperson’s commission']] as const;
 export type Page=typeof pages[number][0];
 export type Component=typeof components[number][0];
@@ -11,8 +11,8 @@ const every=<T,>(value:T)=><K extends string>(keys:readonly (readonly [K,string]
 export const SUPER_ADMIN='super-admin';
 export const defaultRoles:Role[]=[
  {id:SUPER_ADMIN,name:'Super admin',pages:every<Level>('edit')(pages),components:every(true)(components)},
- {id:'office-manager',name:'Office manager',pages:{offices:'edit',contracts:'edit',enquiries:'edit',cash:'edit',documents:'edit',workbook:'edit',employees:'edit',whatsapp:'edit',sales:'view',users:'none'},components:{summary:true,export:true,invoices:true,delete:false,allCommissions:true}},
- {id:'sales',name:'Sales',pages:{offices:'view',contracts:'none',enquiries:'edit',cash:'none',documents:'none',workbook:'none',employees:'none',whatsapp:'edit',sales:'none',users:'none'},components:{summary:false,export:false,invoices:false,delete:false,allCommissions:false}},
+ {id:'office-manager',name:'Office manager',pages:{offices:'edit',contracts:'edit',customers:'edit',enquiries:'edit',cash:'edit',documents:'edit',workbook:'edit',employees:'edit',whatsapp:'edit',sales:'view',users:'none'},components:{summary:true,export:true,invoices:true,delete:false,allCommissions:true}},
+ {id:'sales',name:'Sales',pages:{offices:'view',contracts:'none',customers:'none',enquiries:'edit',cash:'none',documents:'none',workbook:'none',employees:'none',whatsapp:'edit',sales:'none',users:'none'},components:{summary:false,export:false,invoices:false,delete:false,allCommissions:false}},
 ];
 // Stored roles may predate a new page or component; anything unknown falls back to the default (or nothing).
 export function normaliseRole(role:Partial<Role>&{id:string}):Role{const base=defaultRoles.find(r=>r.id===role.id)||defaultRoles[2];if(role.id===SUPER_ADMIN)return {...defaultRoles[0]};const levels=['none','view','edit'];return {id:role.id,name:role.name||base.name,pages:Object.fromEntries(pages.map(([k])=>[k,levels.includes(role.pages?.[k] as string)?role.pages![k]:base.pages[k]])) as Record<Page,Level>,components:Object.fromEntries(components.map(([k])=>[k,typeof role.components?.[k]==='boolean'?role.components[k]:base.components[k]])) as Record<Component,boolean>};}

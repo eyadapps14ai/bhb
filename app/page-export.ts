@@ -5,16 +5,19 @@ import {DEFAULT_RATES} from '@/lib/access';
 import {downloadXlsx,type Cell} from '@/lib/xlsx-export';
 import {buildContracts} from './contracts-panel';
 import {salesDeals,type SalesStaff} from './admin-panels';
+import {buildCustomers} from './customers-panel';
 // "Export Excel" on each page: the page's records with every useful field, one row each.
 type Ctx={branch:string;today:string;offices:Office[];payments:Payment[];documents:Attachment[];leases:any[];invoices:any[];enquiries:Enquiry[];employees:any[];salesStaff:SalesStaff[];allOffices:Office[];allLeases:any[];origin:string;onlySeller?:string};
 const r2=(n:number)=>Math.round(n*100)/100;
-export const exportable=['contracts','enquiries','cash','documents','workbook','employees','sales'];
+export const exportable=['customers','contracts','enquiries','cash','documents','workbook','employees','sales'];
 export function exportPage(view:string,c:Ctx){
  const code=(id:string|null)=>c.offices.find(o=>o.id===id)?.code||'',ref=(id:string|null)=>id?c.payments.find(p=>p.id===id)?.reference||'':'';
  let title='',rows:Cell[][]=[];
  if(view==='contracts'){title='Lease contracts';const seller=(id:string)=>c.salesStaff.find(s=>s.id===id)?.name||'';
   rows=[['Office','Tenant','Status','Sold by','Deal type','Lease reference','Start','End','Months','Rent (AED)','Rent period','Contract value (AED)','Invoiced before VAT (AED)','Received rent (AED)','Pending checks (AED)','Still to collect (AED)','Payments','Invoices'],
    ...buildContracts(c.offices,c.leases,c.payments,c.invoices,c.today).map(x=>[x.office.code,x.office.company,x.status,seller(x.office.salesEmployeeId),x.office.salesEmployeeId?x.office.dealType||'New':'',x.office.leaseReference,x.office.start,x.office.end,x.months,x.office.rent,x.office.period,x.value,r2(x.invoiced),x.received,x.pending,x.balance,x.payments.length,x.invoices.length])];}
+ else if(view==='customers'){title='Customers';const codes=(c:any)=>[...new Set(c.contracts.filter((x:any)=>x.status==='Current').map((x:any)=>x.office.code))].join(', ');
+  rows=[['Customer','Status','TRN','Contact person','Email','Phone','Billing address','Current offices','Leases','Customer since','Contract value (AED)','Invoiced before VAT (AED)','Received rent (AED)','Pending checks (AED)','Still to collect (AED)','Invoices'],...buildCustomers(c.offices,c.leases,c.payments,c.invoices,c.today).map(x=>[x.name,x.status,x.trn,x.contact,x.email,x.phone,x.address,codes(x),x.contracts.length,x.since,r2(x.value),r2(x.invoiced),r2(x.received),r2(x.pending),r2(x.balance),x.invoices.length])];}
  else if(view==='enquiries'){title='Website enquiries';rows=[['Received','Name','Email','Phone','Service','Page','Status','Message'],...[...c.enquiries].sort((a,b)=>b.created.localeCompare(a.created)).map(e=>[e.created.slice(0,16).replace('T',' '),e.name,e.email,e.phone,e.service,e.page,e.status,e.message])];}
  else if(view==='cash'){title='Payments';rows=[['Reference','Direction','Income type / category','Office','Payer / payee','Method','Bank','Due date','Cash date','Status','Amount (AED)','VAT (AED)','Deposit (AED)','Total (AED)','Description','Notes'],
    ...[...c.payments].sort((a,b)=>(b.due||'').localeCompare(a.due||'')).map(p=>[p.reference,p.direction,p.direction==='Income'?p.incomeType||'Rent':p.category,code(p.officeId),p.party,p.method,p.bankName,p.due,p.actual,['Pending','Unpaid'].includes(p.status)&&p.due<c.today?'Overdue':p.status,p.amount,p.vatAmount||0,p.securityDeposit||0,paymentTotal(p),p.description,p.notes])];}

@@ -7,7 +7,7 @@ export function invoiceTotals(d:{quantity:number;unitPrice:number;discount:numbe
 // Numbers run per branch and year without gaps (number); invoices issued before that keep their old sequence (seq).
 export function invoiceNumber(i:{seq:number;number?:number;branch:string;issueDate:string}){return i.branch+'-'+i.issueDate.slice(0,4)+'-'+String(i.number??i.seq).padStart(6,'0');}
 // Automatic invoices are only for money received: an income payment with an amount, on a current lease, cleared on
-// or after the branch's go-live date ("Issue invoices automatically from" in the supplier details). Off when unset.
+// or after the branch's go-live date ("Issue invoices automatically from" with your company details in Accounts). Off when unset.
 export const receivedForInvoice=(p:{direction:string;amount:number;officeId:string|null;leaseId?:string|null;status:string;actual?:string},from:string)=>!!from&&p.direction==='Income'&&p.amount>0&&!!p.officeId&&!p.leaseId&&p.status==='Cleared'&&!!p.actual&&p.actual>=from;
 // Why a received payment is not invoiced automatically ('' when it can be). The server and the Accounts count share it.
 // vat: its VAT does not match the lease rate. hand: the lease has an invoice made by hand in its current term, so the
