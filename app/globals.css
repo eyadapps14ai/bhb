@@ -394,3 +394,12 @@ table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-
  .hub-rail-fab .hub-rail-badge{position:static;margin-left:2px;background:#f5e6c4;color:#1f1d18}
 }
 .hub-rail-icon>svg{width:22px;height:22px}.hub-rail.open .hub-rail-icon{margin-right:8px}@media(max-width:900px){.hub-rail .hub-rail-icon{margin-right:8px}}
+/* Payment schedule in the lease form */
+.schedule{display:flex;flex-direction:column;gap:12px}
+.schedule-on{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14.5px}.schedule-on input{width:18px;height:18px}
+.schedule-controls{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end}.schedule-controls .field{margin:0}
+.schedule-controls .seg{margin-left:0;align-items:center}.schedule-controls .seg input{width:64px;height:32px;margin-left:6px;padding:0 8px;border:1px solid var(--border);border-radius:7px;background:#fff}
+.schedule-table{min-width:560px!important}.schedule-table input{width:100%;min-width:120px;height:34px;padding:0 8px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:14px;background:#fff}.schedule-table td.numeric input{text-align:right;max-width:140px}
+.schedule-table td,.schedule-table th{padding:8px 10px!important}.schedule-table tfoot th{font-size:13.5px;text-align:left}.schedule-table tfoot th.numeric{text-align:right}
+.schedule-note{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0;font-size:13.5px;color:#4a463e}.schedule-note.warn{color:#9a3a2f}.schedule-note .text-button{display:inline-flex;align-items:center;gap:4px;padding:0}
+.schedule-note{flex-wrap:nowrap;align-items:flex-start}.schedule-note svg{flex:none;margin-top:2px}
