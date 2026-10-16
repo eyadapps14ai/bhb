@@ -14,7 +14,9 @@ export function cashMetrics(payments:Payment[],month:string,asof:string){const n
 
 export function branchRecords<T extends {offices:Office[];payments:Payment[];documents:Attachment[]}>(records:T,branch:string){const offices=records.offices.filter(o=>(o.branch||'BHB')===branch),ids=new Set(offices.map(o=>o.id));return {leases:((records as any).leases||[]).filter((l:any)=>(l.office.branch||'BHB')===branch),offices,payments:records.payments.filter(p=>p.leaseId?(p.branch||'BHB')===branch:p.officeId?ids.has(p.officeId):(p.branch||'BHB')===branch),documents:records.documents.filter(d=>ids.has(d.officeId))};}
 
-// Rent recorded against an office's current lease (received or scheduled; bounced and cancelled do not count, nor do
-// payments archived with a cancelled lease) compared with what the lease is worth. Used to stop overpaying a lease.
-type RentLine={id:string;officeId:string|null;direction:string;incomeType?:string;status:string;leaseId?:string|null;amount:number};
-export function leaseRoom(o:{start:string;end:string;rent:number;period:string},payments:RentLine[],officeId:string,exceptId?:string){const{value}=contractValue(o);const used=payments.filter(p=>p.officeId===officeId&&p.id!==exceptId&&!p.leaseId&&p.direction==='Income'&&(p.incomeType||'Rent')==='Rent'&&!['Bounced','Cancelled'].includes(p.status)).reduce((a,p)=>a+p.amount,0);return {value,used:Math.round(used*100)/100,left:Math.max(0,Math.round((value-used)*100)/100)};}
+// Rent recorded against an office's current lease (received or scheduled, due between its start and end dates;
+// bounced and cancelled do not count, nor do payments archived with a cancelled lease or due in an earlier term)
+// compared with what the lease is worth. Used to stop overpaying a lease.
+type RentLine={id:string;officeId:string|null;direction:string;incomeType?:string;status:string;leaseId?:string|null;amount:number;due?:string};
+export const inLeaseTerm=(o:{start:string;end:string},due?:string)=>!!due&&!!o.start&&!!o.end&&due>=o.start&&due<=o.end;
+export function leaseRoom(o:{start:string;end:string;rent:number;period:string},payments:RentLine[],officeId:string,exceptId?:string){const{value}=contractValue(o);const used=payments.filter(p=>p.officeId===officeId&&p.id!==exceptId&&!p.leaseId&&inLeaseTerm(o,p.due)&&p.direction==='Income'&&(p.incomeType||'Rent')==='Rent'&&!['Bounced','Cancelled'].includes(p.status)).reduce((a,p)=>a+p.amount,0);return {value,used:Math.round(used*100)/100,left:Math.max(0,Math.round((value-used)*100)/100)};}

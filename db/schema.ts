@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS invoices (
 );
 CREATE INDEX IF NOT EXISTS invoice_owner ON invoices (owner);
 CREATE UNIQUE INDEX IF NOT EXISTS invoice_owner_payment ON invoices (owner, ((data::jsonb) ->> 'paymentId'));
+-- Invoice numbers run per branch and year; older invoices without a number keep their sequence.
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_branch_year_number ON invoices (owner, ((data::jsonb) ->> 'branch'), (substr((data::jsonb) ->> 'issueDate', 1, 4)), ((data::jsonb) ->> 'number'));
 CREATE TABLE IF NOT EXISTS users (
   id text PRIMARY KEY,
   email text NOT NULL UNIQUE,

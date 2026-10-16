@@ -1,5 +1,6 @@
 'use client';
-import {Fragment,useRef,useState} from 'react';
+import {Fragment,useContext,useRef,useState} from 'react';
+import {ExportAllowed} from './board';
 import {ChevronLeft,ChevronRight,ChevronDown,CalendarDays,ArrowUpRight,ArrowDownRight,Hourglass,TriangleAlert,Download} from 'lucide-react';
 import {BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,ReferenceArea} from 'recharts';
 import {cashMetrics,paymentTotal,type Payment} from '@/lib/records';
@@ -99,6 +100,7 @@ function cleared(list:Payment[],prefix=''):Line[]{
 const byAbs=(a:Line,b:Line)=>Math.abs(b.amount)-Math.abs(a.amount);
 
 export function CashAnalysis({payments,month,asof}:{payments:Payment[];month:string;asof:string}){
+ const canExport=useContext(ExportAllowed);
  const [by,setBy]=useState<'category'|'direction'|'status'|'month'>('category'),[folded,setFolded]=useState<Set<string>>(new Set());
  const inMonth=(p:Payment)=>(isIn(p)||isOut(p))&&!!p.actual&&p.actual.startsWith(month),monthLines=cleared(payments.filter(inMonth));
  const mn=monthName(month),pending=payments.filter(isPending),unpaid=payments.filter(isUnpaid);
@@ -119,7 +121,7 @@ export function CashAnalysis({payments,month,asof}:{payments:Payment[];month:str
  const all=groups.flatMap(g=>g.lines),max=Math.max(1,...all.map(l=>Math.abs(l.amount))),moneyIn=all.filter(l=>l.amount>0).reduce((a,l)=>a+l.amount,0),moneyOut=-all.filter(l=>l.amount<0).reduce((a,l)=>a+l.amount,0);
  const total=(g:Group)=>g.lines.reduce((a,l)=>a+l.amount,0),fold=(k:string)=>setFolded(f=>{const n=new Set(f);if(n.has(k))n.delete(k);else n.add(k);return n});
  const exportCsv=()=>{const q=(v:string|number)=>'"'+String(v).replace(/"/g,'""')+'"';const csv=['Group,Line,Detail,Amount (AED)',...groups.flatMap(g=>g.lines.map(l=>[g.label,l.label,l.sub,l.amount.toFixed(2)].map(q).join(',')))].join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'})),a=document.createElement('a');a.href=url;a.download='cash-flow-'+month+'-by-'+by+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000)};
- return <section className="m-card m-analysis"><div className="m-analysis-head"><div><h3>Analyze cash flow</h3><small>{subtitle}</small></div><button type="button" className="secondary" disabled={!all.length} onClick={exportCsv}><Download size={16}/>Export CSV</button></div>
+ return <section className="m-card m-analysis"><div className="m-analysis-head"><div><h3>Analyze cash flow</h3><small>{subtitle}</small></div>{canExport&&<button type="button" className="secondary" disabled={!all.length} onClick={exportCsv}><Download size={16}/>Export CSV</button>}</div>
   <div className="m-groupby" role="group" aria-label="Group by"><span>Group by</span>{(['category','direction','status','month'] as const).map(k=><button key={k} type="button" aria-pressed={by===k} onClick={()=>{setBy(k);setFolded(new Set())}}>{k[0].toUpperCase()+k.slice(1)}</button>)}</div>
   <div className="m-sum"><div><small>Money in</small><strong>AED {n0(moneyIn)}</strong></div><div><small>Money out</small><strong>AED {n0(moneyOut)}</strong></div><div className="dark"><small>Net · {plural(groups.length,'group')}</small><strong>{moneyIn-moneyOut<0?'− ':''}AED {n0(Math.abs(moneyIn-moneyOut))}</strong></div></div>
   {all.length?<div className="table-scroll"><table className="m-share"><thead><tr><th>{by[0].toUpperCase()+by.slice(1)}</th><th>Share of largest</th><th>Amount</th></tr></thead><tbody>{groups.map(g=><Fragment key={g.key}>
