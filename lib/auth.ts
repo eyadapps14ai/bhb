@@ -60,7 +60,8 @@ export function clearedSessionCookie(request: Request) {
   return cookieHeader(request, "", 0);
 }
 
-async function accessFor(userId: string): Promise<Access | null> {
+/** The access of an active user, or null; also used for personal Claude keys (lib/claude-keys.ts). */
+export async function accessFor(userId: string): Promise<Access | null> {
   let db: Database;
   try {
     db = await getDb();
