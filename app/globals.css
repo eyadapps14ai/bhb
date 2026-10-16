@@ -338,3 +338,13 @@ table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-
 .side-nav .wa .nav-icon{color:#168a45!important}
 @media(max-width:650px){.hub-apps{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.hub-app{min-height:0;padding:14px 12px 12px;border-radius:18px}.hub-app-top svg{width:24px;height:24px}.hub-app-label{font-size:14.5px}.hub-app-label small{display:none}.hub-badge{padding:2px 7px;font-size:11px}.hub-floor{padding:16px}}
 .hub-app-top>svg{flex:none;width:30px;height:30px}@media(max-width:650px){.hub-app-top>svg{width:24px;height:24px}}
+/* Hub layout: the office map first, the tiles as a nav bar that stays at the bottom of the screen while scrolling */
+.hub-dock{position:sticky;bottom:12px;z-index:5;display:flex;gap:8px;overflow-x:auto;padding:10px;border-radius:22px;background:#ffffffeb;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid #e8e2d6;box-shadow:0 10px 30px #1d1a1218;scrollbar-width:thin}
+.hub-dock .hub-app{flex:1 0 108px;aspect-ratio:auto;min-height:0;max-height:none;height:96px;padding:12px;border-radius:16px;gap:6px}
+.hub-dock .hub-app-top>svg{width:22px;height:22px}.hub-dock .hub-app-label{font-size:13.5px;line-height:1.2}.hub-dock .hub-app-label small{display:none}.hub-dock .hub-badge{font-size:11px;padding:2px 7px}
+.hub-room-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}.hub-room-top svg{flex:none;margin-top:1px}
+.hub-room.is-occupied .hub-room-top svg{color:#6b665a}.hub-room.is-vacant .hub-room-top svg{color:#2f7a50}.hub-room.is-reserved .hub-room-top svg{color:#7a5518}.hub-room.is-inactive .hub-room-top svg{color:#8a8578}
+.hub-legend li svg{color:#6b665a}
+@media(max-width:650px){.hub-dock{bottom:8px;padding:8px;border-radius:18px}.hub-dock .hub-app{flex:0 0 88px;height:84px;padding:10px;border-radius:14px}.hub-dock .hub-app-label{font-size:12px}.hub-dock .hub-app-top>svg{width:20px;height:20px}}
+.hub-room .hub-room-top{display:flex;font-size:inherit;overflow:visible;white-space:normal;color:inherit}.hub-room-top b{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal}
+.hub-room-top b{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip}

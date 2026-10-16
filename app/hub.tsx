@@ -1,6 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {Plus,ChevronRight,X,Building2,FilePlus2,HandCoins} from 'lucide-react';
+import {Plus,ChevronRight,X,Building2,FilePlus2,HandCoins,Briefcase,DoorOpen,Clock3,Ban,Monitor} from 'lucide-react';
 import {cashMetrics,type Office,type Payment} from '@/lib/records';
 import type {Enquiry} from '@/lib/enquiries';
 // Hub: the first page. A grid of tiles (one per action and page, a badge on the ones that need attention), then every
@@ -8,6 +8,7 @@ import type {Enquiry} from '@/lib/enquiries';
 // vacant office starts the New lease form directly. Each part shows only what the person's role allows.
 type State='occupied'|'reserved'|'vacant'|'inactive';
 const STATES:[State,string][]=[['occupied','Occupied'],['reserved','Reserved'],['vacant','Vacant'],['inactive','Inactive']];
+const ICON:Record<State,React.ElementType>={occupied:Briefcase,reserved:Clock3,vacant:DoorOpen,inactive:Ban};
 const stateOf=(o:Office):State=>o.status==='Active'?'occupied':o.status==='Reserved'?'reserved':o.status==='Inactive'?'inactive':'vacant';
 // Same rule as the New lease dialog: an office can take a new lease when it has no current tenant and dates.
 const canTakeLease=(o:Office)=>!o.leaseClosed&&(!o.company||!o.start);
@@ -60,9 +61,7 @@ export default function Hub({offices,payments,enquiries,month,asof,branch,showMo
   ...(canPay?[{id:'add-payment',label:'Add payment',icon:HandCoins,sub:m&&showMoney?aed(m.pending)+' pending':undefined,onClick:()=>onAddPayment()}]:[]),
   ...pages.map(([id,label,icon])=>({id,label,icon,sub:sub[id],badge:badge[id],onClick:()=>onGo(id)}))];
  return <div className="hub">
-  <nav className="hub-apps" aria-label="Hub">{apps.map(a=>{const Icon=a.icon;return <button key={a.id} type="button" className={'hub-app'+(a.badge?' is-hot':'')} onClick={a.onClick}>
-   <span className="hub-app-top"><Icon size={30} strokeWidth={1.6} aria-hidden="true"/>{a.badge&&<span className="hub-badge">{a.badge}</span>}</span>
-   <span className="hub-app-label">{a.label}{a.sub&&<small>{a.sub}</small>}</span></button>})}</nav>
+
 
   <section className="surface hub-floor" aria-labelledby="hub-floor-title">
    <div className="hub-floor-head"><div><h2 id="hub-floor-title">Offices · {branch}</h2><span className="hub-occ-line"><b>{pct(occupied,physical.length)}%</b> of {physical.length} physical offices let{desks>0&&<> · {n0(desksTaken)} of {n0(desks)} desks</>}</span></div>
@@ -71,11 +70,14 @@ export default function Hub({offices,payments,enquiries,month,asof,branch,showMo
    {physical.length>0&&<div className="hub-bar" role="img" aria-label={STATES.map(([s,l])=>l+' '+count(physical,s)).join(', ')}>{STATES.filter(([s])=>count(physical,s)>0).map(([s,l])=>{const c=count(physical,s);return <button key={s} type="button" className={'hub-seg is-'+s} style={{flexGrow:c}} title={l+': '+c+' ('+pct(c,physical.length)+'%)'} aria-label={'Show '+l.toLowerCase()+' offices'} onClick={()=>setFilter(filter===s?'all':s)}/>})}</div>}
    {groups.length?groups.map(([name,list])=>{const vis=list.filter(shown);return vis.length?<div key={name} className="hub-group"><h3>{name}<small>{count(list,'occupied')} of {list.length} let</small></h3>
     <div className="hub-grid">{vis.map(o=>{const s=stateOf(o),warn=isExpiring(o);return <button key={o.id} type="button" className={'hub-room is-'+s+(warn?' is-warn':'')+(o.kind==='Virtual'?' is-virtual':'')+(picked===o.id?' is-picked':'')} title={tip(o)} aria-label={tip(o)} aria-pressed={picked===o.id} onClick={()=>setPicked(picked===o.id?'':o.id)}>
-     <b>{o.code}</b><span>{s==='occupied'?o.company||'Occupied':STATES.find(([x])=>x===s)![1]}</span>{warn&&<small>{o.end&&o.end<=addDays(asof,30)?'Ends '+day(o.end):'Licence expiring'}</small>}
+     <span className="hub-room-top"><b>{o.code}</b>{(()=>{const I=o.kind==='Virtual'?Monitor:ICON[s];return <I size={16} strokeWidth={1.8} aria-hidden="true"/>})()}</span><span>{s==='occupied'?o.company||'Occupied':STATES.find(([x])=>x===s)![1]}</span>{warn&&<small>{o.end&&o.end<=addDays(asof,30)?'Ends '+day(o.end):'Licence expiring'}</small>}
     </button>})}</div>{sel&&list.includes(sel)&&pickPanel}</div>:null}):<div className="empty compact"><Building2 size={34}/><h3>No offices yet</h3><p>Add the first office with New lease, then New office.</p></div>}
    {groups.length>0&&groups.every(([,list])=>!list.some(shown))&&<p className="notes">No offices match this filter.</p>}
-   <ul className="hub-legend hub-legend-grid" aria-label="Colour key">{STATES.map(([s,l])=><li key={s}><span className={'hub-swatch is-'+s}/>{l}</li>)}<li><span className="hub-swatch is-occupied is-warn"/>Lease or licence ends within 30 days</li></ul>
+   <ul className="hub-legend hub-legend-grid" aria-label="Colour key">{STATES.map(([s,l])=>{const I=ICON[s];return <li key={s}><span className={'hub-swatch is-'+s}/><I size={14} aria-hidden="true"/>{l}</li>})}<li><Monitor size={14} aria-hidden="true"/>Virtual</li><li><span className="hub-swatch is-occupied is-warn"/>Lease or licence ends within 30 days</li></ul>
   </section>
+  <nav className="hub-apps hub-dock" aria-label="Hub">{apps.map(a=>{const Icon=a.icon;return <button key={a.id} type="button" className={'hub-app'+(a.badge?' is-hot':'')} onClick={a.onClick}>
+   <span className="hub-app-top"><Icon size={30} strokeWidth={1.6} aria-hidden="true"/>{a.badge&&<span className="hub-badge">{a.badge}</span>}</span>
+   <span className="hub-app-label">{a.label}{a.sub&&<small>{a.sub}</small>}</span></button>})}</nav>
 
  </div>;
 }
