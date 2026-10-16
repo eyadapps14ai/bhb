@@ -1,6 +1,7 @@
 'use client';
-import {Fragment,useState,useSyncExternalStore} from 'react';
-import {ChevronDown,ChevronRight,Search,X} from 'lucide-react';
+import {Fragment,useRef,useState,useSyncExternalStore} from 'react';
+import {downloadXlsx,tableToRows} from '@/lib/xlsx-export';
+import {ChevronDown,ChevronRight,Search,X,FileSpreadsheet} from 'lucide-react';
 // Building blocks for the "Analytical" layout that pages can offer next to their classic layout:
 // a table with filter chips and group-by chips.
 
@@ -22,7 +23,7 @@ export type Grouping<T>={id:string;label:string;key:(row:T)=>string};
 // A searchable table: one filter chip at a time, any number of group-by chips. Selected groupings
 // combine into one group per row ("Tenant — Oct 2026"), each with its own subtotal row, which folds.
 export function GroupedTable<T>({title,rows,columns,filters,groupings,initialGroups=[],search,rowKey,empty='Nothing here yet.'}:{title:string;rows:T[];columns:Column<T>[];filters:Option<T>[];groupings:Grouping<T>[];initialGroups?:string[];search:(row:T)=>string;rowKey:(row:T)=>string;empty?:string}){
- const [filter,setFilter]=useState(filters[0]?.id),[groups,setGroups]=useState<string[]>(initialGroups),[query,setQuery]=useState(''),[folded,setFolded]=useState<Set<string>>(new Set());
+ const tableRef=useRef<HTMLTableElement>(null),[filter,setFilter]=useState(filters[0]?.id),[groups,setGroups]=useState<string[]>(initialGroups),[query,setQuery]=useState(''),[folded,setFolded]=useState<Set<string>>(new Set());
  const q=query.trim().toLowerCase(),test=filters.find(f=>f.id===filter)?.test??(()=>true);
  const shown=rows.filter(r=>test(r)&&(!q||search(r).toLowerCase().includes(q)));
  const active=groupings.filter(g=>groups.includes(g.id));
@@ -34,9 +35,9 @@ export function GroupedTable<T>({title,rows,columns,filters,groupings,initialGro
  const lead=Math.max(1,columns.findIndex(c=>c.total));
  const totals=(list:T[])=>columns.slice(lead).map(c=><td key={c.id} className={(c.numeric?'num':'')+(c.highlight?' hl':'')}>{c.total?.(list)}</td>);
  return <section className="surface grouped-table" aria-label={title}>
-  <div className="gt-head"><h2>{title}</h2><span className="gt-count">{shown.length} of {rows.length}</span><div className="search"><Search size={16}/><input aria-label={'Search '+title.toLowerCase()} placeholder="Search…" value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button type="button" className="search-clear" aria-label="Clear search" onClick={()=>setQuery('')}><X size={15}/></button>}</div></div>
+  <div className="gt-head"><h2>{title}</h2><span className="gt-count">{shown.length} of {rows.length}</span><div className="search"><Search size={16}/><input aria-label={'Search '+title.toLowerCase()} placeholder="Search…" value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button type="button" className="search-clear" aria-label="Clear search" onClick={()=>setQuery('')}><X size={15}/></button>}</div><button type="button" className="secondary gt-excel" disabled={!shown.length} onClick={()=>tableRef.current&&downloadXlsx(title,tableToRows(tableRef.current),title.toLowerCase().replace(/\W+/g,'-'))}><FileSpreadsheet size={16}/>Excel</button></div>
   <div className="gt-chips"><div className="chip-set" role="group" aria-label="Show">{filters.map(f=><button key={f.id} type="button" className="chip" aria-pressed={filter===f.id} onClick={()=>setFilter(f.id)}>{f.label}<span className="chip-count">{rows.filter(f.test).length}</span></button>)}</div><span className="gt-divider" aria-hidden="true"/><div className="chip-set" role="group" aria-label="Group by"><span className="gt-label">Group by</span>{groupings.map(g=><button key={g.id} type="button" className="chip" aria-pressed={groups.includes(g.id)} onClick={()=>toggleGroup(g.id)}>{g.label}</button>)}{groups.length>0&&<button type="button" className="chip clear" onClick={()=>{setGroups([]);setFolded(new Set())}}>Clear<X size={13}/></button>}</div></div>
-  {shown.length?<div className="table-scroll"><table className="gt-table"><thead><tr>{columns.map(c=><th key={c.id} scope="col" className={(c.numeric?'num':'')+(c.highlight?' hl':'')}>{c.label}</th>)}</tr></thead>
+  {shown.length?<div className="table-scroll"><table className="gt-table" ref={tableRef}><thead><tr>{columns.map(c=><th key={c.id} scope="col" className={(c.numeric?'num':'')+(c.highlight?' hl':'')}>{c.label}</th>)}</tr></thead>
    <tbody>{active.length?[...buckets].map(([k,list])=><Fragment key={k}><tr className="gt-group"><td colSpan={lead}><button type="button" aria-expanded={!folded.has(k)} onClick={()=>fold(k)}>{folded.has(k)?<ChevronRight size={16}/>:<ChevronDown size={16}/>}{k||'—'}<small>({list.length})</small></button></td>{totals(list)}</tr>{!folded.has(k)&&list.map(r=><tr key={rowKey(r)}>{cells(r)}</tr>)}</Fragment>):shown.map(r=><tr key={rowKey(r)}>{cells(r)}</tr>)}</tbody>
    <tfoot><tr className="gt-total"><td colSpan={lead}>Total</td>{totals(shown)}</tr></tfoot></table></div>
   :<div className="empty compact"><h3>{q?'No matches':'Nothing to show'}</h3><p>{q?'Try another search.':empty}</p></div>}

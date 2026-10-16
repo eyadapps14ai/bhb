@@ -5,3 +5,6 @@ export const invoiceSchema=z.object({officeId:z.string().min(1),paymentId:z.stri
 export const round=(n:number)=>Math.round((n+Number.EPSILON)*100)/100;
 export function invoiceTotals(d:{quantity:number;unitPrice:number;discount:number;vatRate:number}){const gross=round(d.quantity*d.unitPrice),net=round(gross-d.discount),vat=round(net*d.vatRate/100);return {gross,net,vat,total:round(net+vat)};}
 export function invoiceNumber(i:{seq:number;branch:string;issueDate:string}){return i.branch+'-'+i.issueDate.slice(0,4)+'-'+String(i.seq).padStart(6,'0');}
+// A payment is due an invoice when it is income with an amount, not cancelled or bounced, on a current lease,
+// and either cleared or due on the given day or earlier.
+export const dueForInvoice=(p:{direction:string;amount:number;officeId:string|null;leaseId?:string|null;status:string;due:string;id?:string},on:string)=>p.direction==='Income'&&p.amount>0&&!!p.officeId&&!p.leaseId&&(p.status==='Cleared'||p.status==='Pending'&&!!p.due&&p.due<=on);
