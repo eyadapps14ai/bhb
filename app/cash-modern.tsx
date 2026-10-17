@@ -94,7 +94,7 @@ function cleared(list:Payment[],prefix=''):Line[]{
  const rec=list.filter(isIn),out=list.filter(isOut),sum=(l:Payment[],f:(p:Payment)=>number)=>l.reduce((a,p)=>a+f(p),0);
  const lines:Line[]=[{key:prefix+'rent',label:'Rent',sub:'Cleared',amount:sum(rec.filter(p=>(p.incomeType||'Rent')==='Rent'),p=>p.amount)},{key:prefix+'pro',label:'PRO services',sub:'Cleared',amount:sum(rec.filter(p=>p.incomeType==='PRO service'),p=>p.amount)},{key:prefix+'other',label:'Other income',sub:'Cleared',amount:sum(rec.filter(p=>p.incomeType==='Other income'),p=>p.amount)},
   {key:prefix+'dep',label:'Security deposits',sub:'Refundable to tenants',amount:sum(rec,p=>p.securityDeposit||0)},{key:prefix+'vat',label:'VAT collected',sub:'Owed to FTA',amount:sum(rec,p=>p.vatAmount||0)},
-  ...Object.keys(expenseLabel).map(c=>({key:prefix+'x-'+c,label:expenseLabel[c],sub:'Paid',amount:-sum(out.filter(p=>(p.category||'Other')===c),p=>p.amount)}))];
+  ...[...new Set([...Object.keys(expenseLabel),...out.map(p=>p.category||'Other')])].map(c=>({key:prefix+'x-'+c,label:expenseLabel[c]||c,sub:'Paid',amount:-sum(out.filter(p=>(p.category||'Other')===c),p=>p.amount)}))];
  return lines.filter(l=>Math.abs(l.amount)>0.004);
 }
 const byAbs=(a:Line,b:Line)=>Math.abs(b.amount)-Math.abs(a.amount);
