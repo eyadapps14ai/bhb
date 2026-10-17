@@ -64,9 +64,10 @@ export default function Hub({offices,payments,enquiries,month,asof,branch,showMo
   ...(canPay?[{id:'add-payment',label:'Add payment',icon:HandCoins,sub:m&&showMoney?aed(m.pending)+' pending':undefined,onClick:()=>onAddPayment()}]:[]),
   ...MAIN.flatMap(id=>pages.filter(([v])=>v===id)).map(([id,label,icon])=>({id,label,icon,sub:sub[id],badge:badge[id],onClick:()=>onGo(id)}))].map(a=>({...a,short:SHORT_LABEL[a.id]}));
  return <div className="hub">
+  <section className="surface hub-quick" aria-labelledby="hub-quick-title"><div className="hub-floor-head"><div><h2 id="hub-quick-title">Quick actions</h2><span className="hub-occ-line">The main things you do every day. Everything else is in the menu.</span></div></div>
   <nav className="hub-apps" aria-label="Main actions">{apps.map(a=>{const Icon=a.icon;return <button key={a.id} type="button" className={'hub-app'+(a.badge?' is-hot':'')} onClick={a.onClick} title={[a.label,a.badge,a.sub].filter(Boolean).join(' · ')}>
    <span className="hub-app-top"><Icon size={30} strokeWidth={1.6} aria-hidden="true"/>{a.badge&&<span className="hub-badge">{a.badge}</span>}</span>
-   <span className="hub-app-label">{a.label}{a.sub&&<small>{a.sub}</small>}</span></button>})}</nav>
+   <span className="hub-app-label">{a.label}{a.sub&&<small>{a.sub}</small>}</span></button>})}</nav></section>
 
 
   <section className="surface hub-floor" aria-labelledby="hub-floor-title">

@@ -468,3 +468,8 @@ table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-
 @media(max-width:650px){.cu-list{padding:4px 6px 8px}.cu-row{grid-template-columns:40px minmax(0,1fr) 18px;gap:10px;padding:12px 8px}.cu-row .lc-money{grid-column:2;grid-row:2}.cu-row .lc-chev{grid-column:3;grid-row:1}}
 .cu-chip.more{background:none;color:#7a5518}
 .detail-sheet>*{flex-shrink:0}
+/* Hub: the main-action boxes sit in a container card, like the office map below */
+.hub-quick{border-radius:24px;padding:22px 24px}.hub-quick .hub-floor-head{margin-bottom:16px}.hub-quick .hub-floor-head h2{font-size:19px;margin:0}
+.hub-quick .hub-app{background:#f6f3ec}.hub-quick .hub-app:hover{background:#eee9df}.hub-quick .hub-app.is-hot{background:#f8eed8}
+.theme-modern .hub-quick{border-color:var(--m-line)}
+@media(max-width:650px){.hub-quick{padding:16px}}
