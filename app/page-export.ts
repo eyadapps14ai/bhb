@@ -7,7 +7,7 @@ import {buildContracts} from './contracts-panel';
 import {salesDeals,type SalesStaff} from './admin-panels';
 import {buildCustomers} from './customers-panel';
 // "Export Excel" on each page: the page's records with every useful field, one row each.
-type Ctx={branch:string;today:string;offices:Office[];payments:Payment[];documents:Attachment[];leases:any[];invoices:any[];enquiries:Enquiry[];employees:any[];salesStaff:SalesStaff[];allOffices:Office[];allLeases:any[];origin:string;onlySeller?:string;customers?:any[]};
+type Ctx={branch:string;today:string;offices:Office[];payments:Payment[];documents:Attachment[];leases:any[];invoices:any[];enquiries:Enquiry[];employees:any[];salesStaff:SalesStaff[];allOffices:Office[];allLeases:any[];origin:string;onlySeller?:string;customers?:any[];allBranches?:boolean};
 const r2=(n:number)=>Math.round(n*100)/100;
 export const exportable=['customers','contracts','enquiries','cash','documents','workbook','employees','sales'];
 export function exportPage(view:string,c:Ctx){
@@ -24,7 +24,7 @@ export function exportPage(view:string,c:Ctx){
  else if(view==='documents'){title='Documents';rows=[['Document','Type','Office','Payment','Uploaded','Size (KB)','Link'],...c.documents.map(d=>[d.name,d.category,code(d.officeId),ref(d.paymentId),d.created.slice(0,10),Math.round(d.size/1024),c.origin+'/api/documents?id='+encodeURIComponent(d.id)])];}
  else if(view==='workbook'){title='Tax invoices';rows=[['Invoice','Issue date','Supply date','Office','Buyer','Buyer TRN','Description','Before VAT (AED)','VAT (AED)','Total (AED)','Payment','Document'],
    ...[...c.invoices].sort((a,b)=>b.issueDate.localeCompare(a.issueDate)||b.seq-a.seq).map(i=>[invoiceNumber(i),i.issueDate,i.supplyDate,code(i.officeId),i.buyerName,i.buyerTrn||'',i.description,i.totals?.net||0,i.totals?.vat||0,i.totals?.total||0,ref(i.paymentId),c.origin+'/invoice/'+i.id])];}
- else if(view==='employees'){title='Employees';const list=c.employees.filter(e=>e.branch===c.branch),year=c.today.slice(0,4);
+ else if(view==='employees'){title='Employees';const list=c.employees.filter(e=>c.allBranches||e.branch===c.branch),year=c.today.slice(0,4);
   const deals=salesDeals(c.allOffices,c.allLeases,list.filter(e=>e.job==='Sales').map(e=>({id:e.id,name:e.name,branch:e.branch,active:e.status!=='Inactive',commissionNew:e.commissionNew??DEFAULT_RATES.commissionNew,commissionRenewal:e.commissionRenewal??DEFAULT_RATES.commissionRenewal})));
   rows=[['Name','Job','Job title','Email','Phone','Branch','Status','Commission new (%)','Commission renewal (%)','Leases sold','Contracts sold (AED)','Commission '+year+' (AED)'],
    ...[...list].sort((a,b)=>a.name.localeCompare(b.name)).map(e=>{const mine=deals.filter(d=>d.sellerId===e.id),sales=e.job==='Sales';return [e.name,e.job||'Other',e.position||'',e.email,e.phone,e.branch,e.status||'Active',sales?e.commissionNew??DEFAULT_RATES.commissionNew:'',sales?e.commissionRenewal??DEFAULT_RATES.commissionRenewal:'',sales?mine.length:'',sales?r2(mine.reduce((a,d)=>a+d.value,0)):'',sales?r2(mine.filter(d=>d.start.slice(0,4)===year).reduce((a,d)=>a+d.commission,0)):'']})];}
