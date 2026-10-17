@@ -1,6 +1,6 @@
 import {paymentTotal,type Office,type Payment,type Attachment} from '@/lib/records';
 import type {Enquiry} from '@/lib/enquiries';
-import {invoiceNumber} from '@/lib/invoices';
+import {invoiceNumber,creditNumber} from '@/lib/invoices';
 import {DEFAULT_RATES} from '@/lib/access';
 import {downloadXlsx,type Cell} from '@/lib/xlsx-export';
 import {buildContracts} from './contracts-panel';
@@ -22,8 +22,10 @@ export function exportPage(view:string,c:Ctx){
  else if(view==='cash'){title='Payments';rows=[['Reference','Direction','Income type / category','Office','Payer / payee','Method','Bank','Due date','Cash date','Status','Amount (AED)','VAT (AED)','Deposit (AED)','Total (AED)','Description','Notes'],
    ...[...c.payments].sort((a,b)=>(b.due||'').localeCompare(a.due||'')).map(p=>[p.reference,p.direction,p.direction==='Income'?p.incomeType||'Rent':p.category,code(p.officeId),p.party,p.method,p.bankName,p.due,p.actual,['Pending','Unpaid'].includes(p.status)&&p.due<c.today?'Overdue':p.status,p.amount,p.vatAmount||0,p.securityDeposit||0,paymentTotal(p),p.description,p.notes])];}
  else if(view==='documents'){title='Documents';rows=[['Document','Type','Office','Payment','Uploaded','Size (KB)','Link'],...c.documents.map(d=>[d.name,d.category,code(d.officeId),ref(d.paymentId),d.created.slice(0,10),Math.round(d.size/1024),c.origin+'/api/documents?id='+encodeURIComponent(d.id)])];}
- else if(view==='workbook'){title='Tax invoices';rows=[['Invoice','Issue date','Supply date','Office','Buyer','Buyer TRN','Description','Before VAT (AED)','VAT (AED)','Total (AED)','Payment','Document'],
-   ...[...c.invoices].sort((a,b)=>b.issueDate.localeCompare(a.issueDate)||b.seq-a.seq).map(i=>[invoiceNumber(i),i.issueDate,i.supplyDate,code(i.officeId),i.buyerName,i.buyerTrn||'',i.description,i.totals?.net||0,i.totals?.vat||0,i.totals?.total||0,ref(i.paymentId),c.origin+'/invoice/'+i.id])];}
+ else if(view==='workbook'){title='Tax invoices and credit notes';const notes=c.invoices.flatMap(i=>((i.creditNotes||[]) as {id:string;number:number;branch:string;issueDate:string;reason:string;credit?:{net:number;vat:number;total:number}}[]).map(n=>({...n,invoice:i})));rows=[['Document no.','Issue date','Supply date','Office','Buyer','Buyer TRN','Description','Before VAT (AED)','VAT (AED)','Total (AED)','Payment','Document'],
+   ...[...c.invoices].sort((a,b)=>b.issueDate.localeCompare(a.issueDate)||b.seq-a.seq).map(i=>[invoiceNumber(i),i.issueDate,i.supplyDate,code(i.officeId),i.buyerName,i.buyerTrn||'',i.description,i.totals?.net||0,i.totals?.vat||0,i.totals?.total||0,ref(i.paymentId),c.origin+'/invoice/'+i.id]),
+   // Tax credit notes as their own rows, negative, so the VAT columns add up to what is owed.
+   ...notes.sort((a,b)=>b.issueDate.localeCompare(a.issueDate)).map(n=>[creditNumber(n),n.issueDate,'',code(n.invoice.officeId),n.invoice.buyerName,n.invoice.buyerTrn||'','Credit note for '+invoiceNumber(n.invoice)+': '+n.reason,-(n.credit?.net||0),-(n.credit?.vat||0),-(n.credit?.total||0),ref(n.invoice.paymentId),c.origin+'/credit-note/'+n.id])];}
  else if(view==='employees'){title='Employees';const list=c.employees.filter(e=>c.allBranches||e.branch===c.branch),year=c.today.slice(0,4);
   const deals=salesDeals(c.allOffices,c.allLeases,list.filter(e=>e.job==='Sales').map(e=>({id:e.id,name:e.name,branch:e.branch,active:e.status!=='Inactive',commissionNew:e.commissionNew??DEFAULT_RATES.commissionNew,commissionRenewal:e.commissionRenewal??DEFAULT_RATES.commissionRenewal})));
   rows=[['Name','Job','Job title','Email','Phone','Branch','Status','Commission new (%)','Commission renewal (%)','Leases sold','Contracts sold (AED)','Commission '+year+' (AED)'],

@@ -73,6 +73,16 @@ CREATE INDEX IF NOT EXISTS invoice_owner ON invoices (owner);
 CREATE UNIQUE INDEX IF NOT EXISTS invoice_owner_payment ON invoices (owner, ((data::jsonb) ->> 'paymentId'));
 -- Invoice numbers run per branch and year; older invoices without a number keep their sequence.
 CREATE UNIQUE INDEX IF NOT EXISTS invoice_branch_year_number ON invoices (owner, ((data::jsonb) ->> 'branch'), (substr((data::jsonb) ->> 'issueDate', 1, 4)), ((data::jsonb) ->> 'number'));
+-- Tax credit notes reduce an issued invoice (a bounced cheque never replaced, a refund, a later discount). They have
+-- their own number per branch and year (BHB-CN-2026-000001) and never change the invoice itself.
+CREATE TABLE IF NOT EXISTS credit_notes (
+  id text PRIMARY KEY,
+  owner text NOT NULL,
+  invoice_id text NOT NULL REFERENCES invoices (id),
+  data text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS credit_note_invoice ON credit_notes (owner, invoice_id);
+CREATE UNIQUE INDEX IF NOT EXISTS credit_note_branch_year_number ON credit_notes (owner, ((data::jsonb) ->> 'branch'), (substr((data::jsonb) ->> 'issueDate', 1, 4)), ((data::jsonb) ->> 'number'));
 CREATE TABLE IF NOT EXISTS users (
   id text PRIMARY KEY,
   email text NOT NULL UNIQUE,

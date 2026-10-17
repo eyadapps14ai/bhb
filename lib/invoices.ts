@@ -10,6 +10,9 @@ export const round=(n:number)=>Math.round((n+Number.EPSILON)*100)/100;
 export function invoiceTotals(d:{quantity:number;unitPrice:number;discount:number;vatRate:number}){const gross=round(d.quantity*d.unitPrice),net=round(gross-d.discount),vat=round(net*d.vatRate/100);return {gross,net,vat,total:round(net+vat)};}
 // Numbers run per branch and year without gaps (number); invoices issued before that keep their old sequence (seq).
 export function invoiceNumber(i:{seq:number;number?:number;branch:string;issueDate:string}){return i.branch+'-'+i.issueDate.slice(0,4)+'-'+String(i.number??i.seq).padStart(6,'0');}
+// A tax credit note against one issued invoice: the amount before VAT to take off (all that is left, or part), why, and when.
+export const creditNoteSchema=z.object({invoiceId:z.string().min(1).max(80),issueDate:date,reason:z.string().trim().min(3,'Say why this credit note is issued').max(500),net:z.coerce.number().finite().positive('Enter the amount to credit').max(1e11)});
+export function creditNumber(c:{number:number;branch:string;issueDate:string}){return c.branch+'-CN-'+c.issueDate.slice(0,4)+'-'+String(c.number).padStart(6,'0');}
 // Automatic invoices are only for money received: an income payment with an amount, on a current lease, cleared on
 // or after the branch's go-live date ("Issue invoices automatically from" with your company details in Accounts). Off when unset.
 export const receivedForInvoice=(p:{direction:string;amount:number;officeId:string|null;leaseId?:string|null;status:string;actual?:string},from:string)=>!!from&&p.direction==='Income'&&p.amount>0&&!!p.officeId&&!p.leaseId&&p.status==='Cleared'&&!!p.actual&&p.actual>=from;

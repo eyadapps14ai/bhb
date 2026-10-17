@@ -1,8 +1,8 @@
 import {context,failure,checkOffice,checkBranch,allow} from '@/lib/server-records';
-import {has} from '@/lib/access';
+import {has,can} from '@/lib/access';
 import {issuerSchema,invoiceSchema} from '@/lib/invoices';
 import {today} from '@/lib/records';
-import {createInvoice,autoInvoice,receivedForInvoice} from '@/lib/server-invoices';
+import {createInvoice,autoInvoice,receivedForInvoice,createCreditNote} from '@/lib/server-invoices';
 export async function POST(req:Request){try{const{db,owner,user}=await context(req,'cash','view');allow(has(user,'invoices'));const body:any=await req.json();// Company and bank details are printed on every invoice (clients pay into that IBAN), so only a super admin can
  // change them, like the automatic-invoice start date. Details may be copied to both branches; the start date belongs to one.
  if(body.action==='saveIssuer'){if(user.roleId!=='super-admin')throw new Error('Only a super admin can change the company and bank details printed on invoices.');const issuer=issuerSchema.parse(body),branches=body.both?['BHB','111']:[issuer.branch];for(const b of branches)checkBranch(user,b);
@@ -21,4 +21,6 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
   const created:string[]=[],skipped:string[]=[];
   for(const p of due){try{const r=await autoInvoice(db,owner,p,offices.get(p.officeId),on,{userId:user.userId,name:user.name});if(r.id)created.push(r.id);else if(r.skipped)skipped.push(r.skipped)}catch(e){skipped.push(p.reference+': '+(e as Error).message)}}
   return Response.json({created:created.length,skipped:skipped.length,notes:skipped.slice(0,5)});}
+ // A tax credit note against an issued invoice: Cash flow edit, and the invoice's branch.
+ if(body.action==='creditNote'){allow(can(user,'cash','edit'));const inv=await db.prepare('SELECT office_id AS "officeId",data FROM invoices WHERE id=? AND owner=?').bind(String(body.invoiceId||''),owner).first<{officeId:string|null;data:string}>();if(!inv)throw new Error('Invoice not found.');if(inv.officeId)await checkOffice(db,owner,user,inv.officeId);else checkBranch(user,JSON.parse(inv.data).branch||'BHB');return Response.json(await createCreditNote(db,owner,body,{userId:user.userId,name:user.name}));}
  const input=invoiceSchema.parse(body);if(input.officeId)await checkOffice(db,owner,user,input.officeId);else{const row:any=await db.prepare('SELECT data FROM customers WHERE id=? AND owner=?').bind(input.customerId,owner).first();if(!row)throw new Error('Customer not found.');checkBranch(user,JSON.parse(row.data).branch||'BHB')}return Response.json(await createInvoice(db,owner,input));}catch(e){return failure(e);}}

@@ -1,5 +1,8 @@
 import {context,checkOffice,checkBranch,DENIED} from '@/lib/server-records';
-import {invoiceNumber,aedInWords} from '@/lib/invoices';
+import {invoiceNumber,aedInWords,creditNumber,round} from '@/lib/invoices';
+import {can,has} from '@/lib/access';
+import {today} from '@/lib/records';
+import CreditNotes,{type NoteLine} from './credit';
 import {notFound,redirect,forbidden} from 'next/navigation';
 import {getUser} from '@/lib/auth';
 import PrintInvoice from './print';
@@ -10,9 +13,11 @@ const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'
 const day=(s?:string)=>s&&/^\d{4}-\d{2}-\d{2}/.test(s)?+s.slice(8,10)+' '+M[+s.slice(5,7)-1]+' '+s.slice(0,4):s||'';
 const METHOD:Record<string,string>={Check:'Cheque',Transfer:'Bank transfer',Cash:'Cash'};
 export default async function InvoicePage({params}:{params:Promise<{id:string}>}){if(!await getUser())redirect('/login');const {id}=await params;// Someone whose role or branches do not cover this invoice gets the plain "no access" page (forbidden.tsx) with a 403.
-let row:any=null,current:{bankName?:string;accountName?:string;iban?:string}|null=null,denied=false;try{const{db,owner,user}=await context(new Request('http://localhost/invoice'),'cash','view');row=await db.prepare('SELECT seq,data,office_id AS "officeId" FROM invoices WHERE id=? AND owner=?').bind(id,owner).first();if(row){const branch=JSON.parse(row.data).branch||'BHB';if(row.officeId)await checkOffice(db,owner,user,row.officeId);else checkBranch(user,branch);
+let row:any=null,current:{bankName?:string;accountName?:string;iban?:string}|null=null,denied=false,canCredit=false,credits:(NoteLine&{net:number;vat:number})[]=[];try{const{db,owner,user}=await context(new Request('http://localhost/invoice'),'cash','view');row=await db.prepare('SELECT seq,data,office_id AS "officeId" FROM invoices WHERE id=? AND owner=?').bind(id,owner).first();if(row){const branch=JSON.parse(row.data).branch||'BHB';if(row.officeId)await checkOffice(db,owner,user,row.officeId);else checkBranch(user,branch);
  // Only invoices issued before the bank fields existed fall back to the branch's current bank details.
- const r=await db.prepare('SELECT data FROM invoice_issuers WHERE id=? AND owner=?').bind(owner+':'+branch,owner).first<{data:string}>();current=r?JSON.parse(r.data):null}}catch(e){// Only a refusal shows "No access"; a database or server error is an error, not a permission problem.
+ const r=await db.prepare('SELECT data FROM invoice_issuers WHERE id=? AND owner=?').bind(owner+':'+branch,owner).first<{data:string}>();current=r?JSON.parse(r.data):null;
+ canCredit=can(user,'cash','edit')&&has(user,'invoices');
+ credits=((await db.prepare('SELECT id,data FROM credit_notes WHERE owner=? AND invoice_id=?').bind(owner,id).all()).results as {id:string;data:string}[]).map(x=>{const c=JSON.parse(x.data);return {id:x.id,number:creditNumber(c),issueDate:c.issueDate,reason:c.reason,total:c.credit.total,net:c.credit.net,vat:c.credit.vat}}).sort((a,b)=>a.issueDate.localeCompare(b.issueDate))}}catch(e){// Only a refusal shows "No access"; a database or server error is an error, not a permission problem.
  if((e as Error).message===DENIED)denied=true;else throw e}if(denied)forbidden();if(!row)notFound();
 const d=JSON.parse(row.data),number=invoiceNumber({...d,seq:row.seq}),fmt=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED'}).format(n);
 // Each invoice prints the bank details saved with it, so changing them later never rewrites an issued invoice.
@@ -21,7 +26,9 @@ const supplierContact=[is.email,is.phone].filter(Boolean).join(' · '),clientCon
 const auto='Issued automatically for payment '+(pay?.reference||'')+'.',raw=String(d.notes||'').trim(),notes=(pay&&raw.startsWith(auto)?raw.slice(auto.length):raw.replace(/^Issued automatically for payment [^\n]*\.$/,'')).trim();
 const payRef=pay&&!/^INC-[0-9a-f]{8}-[0-9a-f]{4}-/i.test(pay.reference||'')?pay.reference:'';
 const lease=o&&[o.code&&'Office '+o.code,o.leaseReference&&'Lease '+o.leaseReference,o.start&&'Lease period '+day(o.start)+' to '+day(o.end),o.licenseNumber&&'Trade licence '+o.licenseNumber].filter(Boolean).join(' · ');
+const leftNet=round(d.totals.net-credits.reduce((a,n)=>a+n.net,0)),leftVat=round(d.totals.vat-credits.reduce((a,n)=>a+n.vat,0));
 return <main className="invoice-document"><PrintInvoice/>
+ <CreditNotes invoiceId={id} notes={credits.map(({id,number,issueDate,reason,total})=>({id,number,issueDate,reason,total}))} leftNet={leftNet} leftVat={leftVat} vatRate={Number(d.vatRate)||0} invoiceDate={d.issueDate} today={today()} canCredit={canCredit}/>
  <header className="invoice-heading"><img src="/bhb-logo.png" alt="BHB Business Centre"/><div className="inv-title"><h1>Tax Invoice</h1><p className="inv-ar" lang="ar" dir="rtl">فاتورة ضريبية</p>
   <dl className="inv-meta"><div><dt>Invoice no.</dt><dd>{number}</dd></div><div><dt>Issue date</dt><dd>{day(d.issueDate)}</dd></div><div><dt>Date of supply</dt><dd>{day(d.supplyDate||d.issueDate)}</dd></div></dl></div></header>
  <div className="invoice-columns"><section><h2>From</h2><b>{is.name}</b><p className="inv-pre">{is.address}</p><p>TRN {is.trn}</p>{supplierContact&&<p>{supplierContact}</p>}</section>
