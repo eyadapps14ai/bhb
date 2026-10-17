@@ -619,3 +619,14 @@ button.dash-kpi:hover{border-color:#c9a65f;box-shadow:0 2px 10px #b5852f1f}
 .theme-modern .exp-cats li button,.theme-modern .exp-row,.theme-modern .exp-search{border-color:var(--m-line)}
 .theme-modern .exp-cats li button:hover,.theme-modern .exp-cats li button[aria-pressed=true]{background:var(--m-soft)}
 .theme-modern .exp-hero{border-radius:24px}
+/* Customers (#565): names only; the right panel leads with the active contracts. */
+.cu-list .cu-row.simple{grid-template-columns:44px minmax(0,1fr) 20px;gap:14px;padding:12px 14px}
+.cu-row.simple .cu-name small{white-space:nowrap}
+.cu-contracts{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.cu-contract{border:1px solid #e9e1cf;border-radius:14px;padding:12px 14px;background:#fbf8f1;display:flex;flex-direction:column;gap:3px}
+.cu-contract-top{display:flex;align-items:center;justify-content:space-between;gap:8px}.cu-contract-top b{font-size:16px}
+.cu-contract small{color:#6b665a;font-size:13px}
+.cu-contract-act{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:8px}
+.cu-past{margin:14px 0 4px}.cu-past summary{cursor:pointer;font-weight:600;font-size:14px;padding:6px 0}
+@media(max-width:650px){.cu-list .cu-row.simple{grid-template-columns:40px minmax(0,1fr) 18px;gap:10px;padding:10px 8px}}
+.theme-modern .cu-contract{background:var(--m-soft);border-color:var(--m-line)}.theme-modern .cu-contract small{color:var(--m-muted)}
