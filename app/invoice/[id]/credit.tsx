@@ -1,5 +1,6 @@
 'use client';
 import {useState} from 'react';
+import {vatOf} from '@/lib/invoices';
 // On the invoice page (screen only, never printed): the tax credit notes issued against this invoice, and "Issue credit
 // note" for people allowed to (Cash flow edit and Invoices). Full credit takes off all that is left; part credit an amount
 // before VAT. The reason is printed on the credit note.
@@ -10,7 +11,7 @@ const REASONS=['Cheque bounced and not replaced','Lease cancelled, rent refunded
 export type NoteLine={id:string;number:string;issueDate:string;reason:string;total:number};
 export default function CreditNotes({invoiceId,notes,leftNet,leftVat,vatRate,invoiceDate,today,canCredit}:{invoiceId:string;notes:NoteLine[];leftNet:number;leftVat:number;vatRate:number;invoiceDate:string;today:string;canCredit:boolean}){
  const [open,setOpen]=useState(false),[part,setPart]=useState(false),[amount,setAmount]=useState(''),[reason,setReason]=useState(''),[date,setDate]=useState(today),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const net=part?Number(amount)||0:leftNet,vat=part?Math.round(net*vatRate)/100:leftVat;
+ const net=part?Number(amount)||0:leftNet,vat=part?Math.min(vatOf(net,vatRate),leftVat):leftVat;
  const issue=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{const r=await fetch('/api/invoices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'creditNote',invoiceId,issueDate:date,reason,net})});const d=await r.json() as {url?:string;error?:string};if(!r.ok)throw new Error(d.error||'Could not issue the credit note');window.location.href=d.url||'/'}catch(err){setError((err as Error).message);setBusy(false)}};
  return <section className="cn-panel no-print" aria-labelledby="cn-title"><div className="cn-head"><h2 id="cn-title">Tax credit notes</h2>{leftNet<=0.004?<span className="badge danger">Credited in full</span>:notes.length>0?<span className="badge warn">Credited in part · {fmt(leftNet)} before VAT left</span>:null}</div>
   {notes.length?<ul className="cn-list">{notes.map(n=><li key={n.id}><a className="text-button" href={'/credit-note/'+n.id}>{n.number}</a><span>{day(n.issueDate)}</span><b>{fmt(n.total)}</b><small>{n.reason}</small></li>)}</ul>:<p className="notes">None. Issue one if this invoice must be reduced: a bounced cheque that is not replaced, a refund, or a discount after invoicing.</p>}
