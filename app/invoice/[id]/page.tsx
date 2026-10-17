@@ -1,5 +1,5 @@
 import {context,checkOffice,checkBranch,DENIED} from '@/lib/server-records';
-import {invoiceNumber,aedInWords,creditNumber,round} from '@/lib/invoices';
+import {invoiceNumber,aedInWords,creditNumber,round,type InvoiceLine} from '@/lib/invoices';
 import {can,has} from '@/lib/access';
 import {today} from '@/lib/records';
 import CreditNotes,{type NoteLine} from './credit';
@@ -19,7 +19,7 @@ let row:any=null,current:{bankName?:string;accountName?:string;iban?:string}|nul
  canCredit=can(user,'cash','edit')&&has(user,'invoices');
  credits=((await db.prepare('SELECT id,data FROM credit_notes WHERE owner=? AND invoice_id=?').bind(owner,id).all()).results as {id:string;data:string}[]).map(x=>{const c=JSON.parse(x.data);return {id:x.id,number:creditNumber(c),issueDate:c.issueDate,reason:c.reason,total:c.credit.total,net:c.credit.net,vat:c.credit.vat}}).sort((a,b)=>a.issueDate.localeCompare(b.issueDate))}}catch(e){// Only a refusal shows "No access"; a database or server error is an error, not a permission problem.
  if((e as Error).message===DENIED)denied=true;else throw e}if(denied)forbidden();if(!row)notFound();
-const d=JSON.parse(row.data),number=invoiceNumber({...d,seq:row.seq}),fmt=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED'}).format(n);
+const d=JSON.parse(row.data),number=invoiceNumber({...d,seq:row.seq}),lines:InvoiceLine[]=d.lines?.length?d.lines:[{description:d.description,quantity:d.quantity,unitPrice:d.unitPrice,discount:d.discount||0,kind:'service'}],fmt=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED'}).format(n);
 // Each invoice prints the bank details saved with it, so changing them later never rewrites an issued invoice.
 const is=d.issuer||{},saved='iban' in is||'bankName' in is,bank=saved?(is.iban||is.bankName?is:null):current?.iban||current?.bankName?current:null,party=d.office||d.customer||{},pay=d.payment,o=d.office;
 const supplierContact=[is.email,is.phone].filter(Boolean).join(' · '),clientContact=[party.contact,party.email,party.phone].filter(Boolean).join(' · ');
@@ -35,13 +35,13 @@ return <main className="invoice-document"><PrintInvoice/>
   <section><h2>Bill to</h2><b>{d.buyerName}</b><p className="inv-pre">{d.buyerAddress}</p><p>{d.buyerTrn?'TRN '+d.buyerTrn:'TRN: not VAT registered'}</p>{clientContact&&<p>{clientContact}</p>}</section></div>
  {lease&&<p className="inv-lease">{lease}</p>}
  <table className="invoice-table"><thead><tr>{[['Description',''],['Qty','num'],['Unit price','num'],['Discount','num'],['Net amount','num'],['VAT rate','num'],['VAT','num'],['Total','num']].map(([h,c])=><th key={h} className={c}>{h}</th>)}</tr></thead>
-  <tbody><tr><td>{d.description}</td><td className="num">{d.quantity}</td><td className="num">{fmt(d.unitPrice)}</td><td className="num">{fmt(d.discount)}</td><td className="num">{fmt(d.totals.net)}</td><td className="num">{d.vatRate}%</td><td className="num">{fmt(d.totals.vat)}</td><td className="num">{fmt(d.totals.total)}</td></tr></tbody></table>
+  <tbody>{lines.map((l,i)=>{const net=round(round(l.quantity*l.unitPrice)-(l.discount||0)),out=l.kind==='disbursement',vat=out?0:round(net*d.vatRate/100);return <tr key={i} className={out?'inv-outside':undefined}><td>{l.description}{out&&<small>Paid on your behalf at cost, outside the scope of VAT</small>}</td><td className="num">{l.quantity}</td><td className="num">{fmt(l.unitPrice)}</td><td className="num">{fmt(l.discount||0)}</td><td className="num">{fmt(net)}</td><td className="num">{out?'Outside scope':d.vatRate+'%'}</td><td className="num">{out?'—':fmt(vat)}</td><td className="num">{fmt(round(net+vat))}</td></tr>})}</tbody></table>
  <div className="inv-bottom"><div className="inv-info">
    {bank&&<section><h2>Payment details</h2><dl>{([['Bank',bank.bankName],['Account name',bank.accountName||is.name],['IBAN',String(bank.iban||'').replace(/(.{4})/g,'$1 ').trim()]] as [string,string][]).filter(([,v])=>v).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></section>}
    {pay&&<p>Payment: {[METHOD[pay.method]||pay.method,payRef].filter(Boolean).join(' ')}{pay.bankName?', '+pay.bankName:''}{pay.due?', due '+day(pay.due):''}.</p>}
    {d.replacedPayments?.length>0&&<p>Replaces {d.replacedPayments.map((r:any)=>typeof r==='string'?r:'bounced payment '+r.reference).join(', ')}.</p>}
    {(pay?.securityDeposit||0)>0&&<p>Security deposit of {fmt(pay.securityDeposit)} received separately; it is refundable and not part of this invoice.</p>}
    {notes&&<p className="inv-pre">{notes}</p>}</div>
-  <div className="inv-totals"><div><span>Subtotal excl. VAT</span><b>{fmt(d.totals.net)}</b></div><div><span>VAT {d.vatRate}%</span><b>{fmt(d.totals.vat)}</b></div><div className="inv-grand"><span>Total (AED)</span><b>{fmt(d.totals.total)}</b></div><p className="inv-words">{aedInWords(d.totals.total)}</p></div></div>
+  <div className="inv-totals"><div><span>Subtotal excl. VAT</span><b>{fmt(d.totals.net)}</b></div><div><span>VAT {d.vatRate}%</span><b>{fmt(d.totals.vat)}</b></div>{(d.totals.outside||0)>0&&<div><span>Government fees (no VAT)</span><b>{fmt(d.totals.outside)}</b></div>}<div className="inv-grand"><span>Total (AED)</span><b>{fmt(d.totals.total)}</b></div><p className="inv-words">{aedInWords(d.totals.total)}</p></div></div>
  <footer>All amounts in UAE dirhams (AED). Thank you for your business.</footer>
 </main>}

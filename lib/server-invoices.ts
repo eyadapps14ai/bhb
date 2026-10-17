@@ -40,7 +40,7 @@ export function invoiceFor(payment:any,office:any,issueDate:string){
   description:[what+' · '+office.code,(payment.description||'').replace(' · '+office.code,''),office.start&&office.end?'Lease '+day(office.start)+' to '+day(office.end):''].filter(Boolean).join(' · ').slice(0,2000),quantity:1,unitPrice:payment.amount,discount:0,vatRate:rate,notes:'Issued automatically for payment '+payment.reference+'.'};
 }
 export {receivedForInvoice} from './invoices';
-const BLOCKED={vat:'its VAT does not match the lease VAT rate; issue this invoice by hand',hand:'this lease has an invoice made by hand in its current term; issue its invoices by hand'};
+const BLOCKED={pro:'PRO services are invoiced by hand, so government fees can go on their own line outside VAT',vat:'its VAT does not match the lease VAT rate; issue this invoice by hand',hand:'this lease has an invoice made by hand in its current term; issue its invoices by hand'};
 // The automatic invoice for one received payment: skipped with a reason (VAT mismatch, lease invoiced by hand),
 // or the invoice of a bounced payment it names as replaced is moved to it, or a new invoice is issued.
 export async function autoInvoice(db:any,owner:string,payment:any,office:any,on:string,by:{userId:string;name:string}={userId:'',name:''}):Promise<{id?:string;url?:string;reused?:boolean;skipped?:string}>{
@@ -83,7 +83,7 @@ export async function createCreditNote(db:Database,owner:string,body:unknown,by:
  if(last?.d&&input.issueDate<last.d)throw new Error('The last credit note in this series is dated '+day(last.d)+'. Date this one '+day(last.d)+' or later, so numbers and dates stay in order.');
  const id=crypto.randomUUID(),data={invoiceId:input.invoiceId,invoiceNumber:invoiceNumber({...inv,seq:row.seq}),invoiceDate:inv.issueDate,branch,issueDate:input.issueDate,reason:input.reason,
   issuer:inv.issuer,buyerName:inv.buyerName,buyerAddress:inv.buyerAddress,buyerTrn:inv.buyerTrn||'',description:inv.description,vatRate:inv.vatRate,officeId:inv.officeId||null,customerId:inv.customerId||null,paymentId:inv.paymentId||null,office:inv.office?{code:inv.office.code}:null,
-  original:{net:inv.totals.net,vat:inv.totals.vat,total:inv.totals.total},credit:{net,vat,total:round(net+vat)},corrected:{...after,total:round(after.net+after.vat)},full:after.net<=0.004,by:by.userId,byName:by.name,created:new Date().toISOString()};
+  original:{net:inv.totals.net,vat:inv.totals.vat,total:inv.totals.total},credit:{net,vat,total:round(net+vat)},corrected:{...after,outside:inv.totals.outside||0,total:round(after.net+after.vat+(inv.totals.outside||0))},full:after.net<=0.004,by:by.userId,byName:by.name,created:new Date().toISOString()};
  for(let attempt=0;;attempt++){try{
   const [,ins]=await db.batch([db.prepare('SELECT pg_advisory_xact_lock(hashtext(?))').bind('credit-note:'+owner+':'+input.invoiceId),
    db.prepare("INSERT INTO credit_notes(id,owner,invoice_id,data) SELECT ?,?,?,jsonb_set(?::jsonb,'{number}',to_jsonb(COALESCE((SELECT MAX((c.data::jsonb->>'number')::int) FROM credit_notes c WHERE c.owner=? AND c.data::jsonb->>'branch'=? AND substr(c.data::jsonb->>'issueDate',1,4)=?),0)+1))::text WHERE (SELECT COALESCE(SUM((x.data::jsonb->'credit'->>'net')::numeric),0) FROM credit_notes x WHERE x.owner=? AND x.invoice_id=?)=?::numeric AND NOT EXISTS (SELECT 1 FROM credit_notes n WHERE n.owner=? AND n.data::jsonb->>'branch'=? AND substr(n.data::jsonb->>'issueDate',1,4)=? AND n.data::jsonb->>'issueDate'>?) RETURNING (data::jsonb->>'number')::int AS number")
