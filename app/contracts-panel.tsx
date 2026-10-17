@@ -1,14 +1,12 @@
 'use client';
 import {useState} from 'react';
-import {ScrollText,Search,Plus,ChevronRight,FileText,Building2,UserPlus,ArrowRight,X} from 'lucide-react';
-import {Sheet,SheetContent,SheetHeader,SheetTitle,SheetDescription} from '@/components/ui/sheet';
+import {ScrollText,Search,ChevronRight,UserPlus,ArrowRight,X} from 'lucide-react';
 import {contractValue} from '@/lib/access';
-import {paymentTotal,type Office,type Payment} from '@/lib/records';
-import {invoiceNumber} from '@/lib/invoices';
+import {type Office,type Payment} from '@/lib/records';
 import type {SalesStaff} from './admin-panels';
 import {GroupedTable,type Column} from './board';
 import {LeasePage} from './lease-page';
-import {MHero,MAttention,MShares,MRows,MThree,MAnalysis,aed0,plural,pct} from './modern-kit';
+import {MAnalysis,aed0} from './modern-kit';
 const fmt=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:2}).format(n),fmt0=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:0}).format(n),n0=(n:number)=>new Intl.NumberFormat('en-AE',{maximumFractionDigits:0}).format(Math.round(n));
 const showDate=(s:string)=>s?new Date(s+'T00:00:00Z').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}):'—';
 export type Contract={key:string;office:Office;officeId:string;leaseId:string|null;status:'Current'|'Ended'|'Cancelled';cancelled:string;months:number;value:number;payments:Payment[];invoices:any[];received:number;pending:number;invoiced:number;balance:number};
@@ -47,7 +45,6 @@ export function ContractsPanel({offices,leases,payments,invoices,salesStaff,toda
  const monthOf=(s:string)=>s?new Date(s.slice(0,7)+'-01T00:00:00Z').toLocaleDateString('en-GB',{month:'short',year:'numeric',timeZone:'UTC'}):'No date';
  const pillClass=(x:Contract)=>'pill '+(x.status==='Current'?'good':x.status==='Cancelled'?'danger':'neutral');
  const current=all.filter(x=>x.status==='Current'),counts={noSeller:current.filter(focusTest.noSeller).length,uninvoiced:current.filter(focusTest.uninvoiced).length,ending:current.filter(focusTest.ending).length};
- const needs=current.filter(x=>focusTest.noSeller(x)||focusTest.uninvoiced(x)||focusTest.ending(x)).length;
  const pick=(f:Focus)=>{setFocus(f);setQuery('');document.querySelector('.lc-section')?.scrollIntoView({behavior:'smooth',block:'start'})};
  const columns:Column<Contract>[]=[
   {id:'office',label:'Office / tenant',cell:x=><><button type="button" className="text-button" onClick={()=>setOpen(x.key)}>{x.office.code}</button><small>{x.office.company||'—'}</small></>},
@@ -69,18 +66,8 @@ export function ContractsPanel({offices,leases,payments,invoices,salesStaff,toda
   summary={l=>[['Contract value',aed0(sum('value',l))],['Cash received',aed0(sum('received',l))],['Still to collect',aed0(sum('balance',l))]]}/>;
  const label=focus?focusLabel[focus]:filter==='All'?'All lease contracts':filter+' lease contracts';
  const bySeller=new Map<string,number>();for(const x of shown)bySeller.set(seller(x.office.salesEmployeeId)||'No seller',(bySeller.get(seller(x.office.salesEmployeeId)||'No seller')||0)+x.value);
- const summary=modern?<>
-   <MHero label={'Contract value · '+(focus?'filtered':filter.toLowerCase())} unit="AED" value={n0(sum('value'))} bar={[[sum('received'),'#2e5f7f'],[sum('balance'),'#e6dfd1']]}
-    text={shown.length?<>AED {n0(sum('received'))} received, AED {n0(sum('balance'))} still to collect. You have collected {pct(sum('received'),sum('value'))}% of what {shown.length===1?'this lease is':'these '+shown.length+' leases are'} worth.</>:'No contracts match this view.'}
-    stats={[{label:'Invoiced',value:aed0(sum('invoiced')),sub:'Before VAT'},{label:'Cash received',value:aed0(sum('received')),sub:'Cleared rent, excl. VAT and deposit',dot:'#2e5f7f'},{label:'Still to collect',value:aed0(sum('balance')),sub:'Pending checks '+aed0(sum('pending'))}]}/>
-   {needs>0&&<MAttention title={plural(needs,'lease needs','leases need')+' you'} sub={'of '+current.length+' current'}
-    chips={[...(counts.noSeller?[{label:plural(counts.noSeller,'lease')+' without a seller',onClick:()=>pick('noSeller')}]:[]),...(counts.uninvoiced?[{label:plural(counts.uninvoiced,'lease')+' not invoiced',onClick:()=>pick('uninvoiced')}]:[]),...(counts.ending?[{label:plural(counts.ending,'lease')+' ending in 60 days',onClick:()=>pick('ending')}]:[])]}/>}
-   <MThree>
-    <MShares title="By salesperson" sub={'Contract value · '+label.toLowerCase()} rows={[...bySeller].sort((a,b)=>b[1]-a[1]).slice(0,6).map(([name,value])=>({label:name,value,text:aed0(value),onClick:name==='No seller'?()=>pick('noSeller'):()=>{setFocus('');setFilter('All');setQuery(name)}}))} empty="No contracts here."/>
-    <MRows title="Collection" sub="Rent against these leases" rows={[{label:'Received',sub:'Cleared rent',value:aed0(sum('received')),tone:'up'},{label:'Pending checks',sub:'Not cleared yet',value:aed0(sum('pending'))},{label:'Still to collect',sub:'Contract value not yet received',value:aed0(sum('balance'))}]} dark={{label:'Collected so far',value:pct(sum('received'),sum('value'))+'%',sub:'AED '+n0(sum('received'))+' of '+n0(sum('value'))}}/>
-    <MRows title="Ending soon" sub={'Current leases ending by '+showDate(soon)} empty="No current lease ends in the next 60 days." rows={current.filter(focusTest.ending).sort((a,b)=>a.office.end.localeCompare(b.office.end)).slice(0,4).map(x=>({label:x.office.code,sub:(x.office.company||'No tenant')+' · ends '+showDate(x.office.end),value:aed0(x.value),onClick:()=>setOpen(x.key)}))}/>
-   </MThree></>
-  :<><section className="surface cash-hero"><div className="cash-hero-head"><h2>{label}</h2></div>
+ // Modern keeps its look but shows the same summary as Classic (the Modern-only cards were confusing).
+ const summary=<><section className="surface cash-hero"><div className="cash-hero-head"><h2>{label}</h2></div>
    <div className="cash-hero-body"><div className="hero-net"><span className="hero-label">Contract value</span><strong className="hero-value">{fmt(sum('value'))}</strong><small>{shown.length} contract{shown.length===1?'':'s'} · rent over each lease, excl. VAT</small></div><div className="hero-stat"><span className="hero-label">Invoiced</span><strong>{fmt(sum('invoiced'))}</strong><small>Before VAT</small></div><div className="hero-stat"><span className="hero-label">Cash received</span><strong>{fmt(sum('received'))}</strong><small>Cleared rent, excl. VAT and deposit</small></div><div className="hero-stat"><span className="hero-label">Still to collect</span><strong>{fmt(sum('balance'))}</strong><small>Contract value not yet received</small></div></div></section>
    {counts.noSeller>0&&<div className="attention"><UserPlus size={20}/><div><b>{counts.noSeller} current lease{counts.noSeller===1?' has':'s have'} no salesperson</b><span>Set Sold by on each lease so commission counts.</span></div><div className="actions attention-actions"><button className="secondary" onClick={()=>pick('noSeller')}>Show them</button></div></div>}</>;
  const list=<section className="surface lc-section"><div className="surface-head lc-head-bar"><h2>{label} <span className="count">{shown.length}</span></h2><div className="lc-tools">{focus?<button type="button" className="chip lc-focus" aria-pressed="true" onClick={()=>setFocus('')}>{focusLabel[focus]}<X size={14}/></button>:<div className="seg" role="group" aria-label="Contract status">{(['Current','Ended','Cancelled','All'] as const).map(s=><button key={s} type="button" aria-pressed={filter===s} onClick={()=>setFilter(s)}>{s}<span className="seg-count">{all.filter(x=>s==='All'||x.status===s).length}</span></button>)}</div>}<div className="search"><Search size={17}/><input aria-label="Search contracts" placeholder="Office, tenant or salesperson…" value={query} onChange={e=>setQuery(e.target.value)}/></div></div></div>

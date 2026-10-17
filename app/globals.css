@@ -489,3 +489,43 @@ table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-
 .theme-modern .lp-head,.theme-modern .lp-schedule{border-radius:24px}.theme-modern .lp-figures>div{border-color:var(--m-line);background:var(--m-soft)}
 @media(max-width:900px){.lp-figures{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.lp-head{padding:16px}.lp-title h2{font-size:20px}}
+/* Menu side: the bar can sit on the right instead of the left (Menu side switch, kept per browser) */
+.nav-on-right .side-bar{inset:0 0 0 auto;border-right:0;border-left:1px solid #e8dcc0}
+.nav-on-right .app-main{margin-left:0;margin-right:264px;transition:margin-right .2s ease}
+@media(min-width:901px){.nav-on-right:not(.nav-wide) .app-main{margin-left:0;margin-right:96px}.nav-on-right:not(.nav-wide) .side-nav [data-slot=tabs-trigger][data-state=active]{box-shadow:inset -3px 0 #c79636}}
+@media(max-width:900px){.nav-on-right .app-main{margin-right:0}.nav-on-right .side-bar{inset:0 0 0 auto;transform:translateX(100%)}.nav-on-right.nav-open .side-bar{transform:none}}
+.theme-modern.nav-on-right .side-bar{border-left-color:var(--m-line)}
+/* Modern theme, compact: smaller titles and figures, tighter cards and spacing */
+.theme-modern main{padding-top:26px}
+.theme-modern .page-head{margin-bottom:16px}.theme-modern .page-head h1{font-size:32px;letter-spacing:-.02em}.theme-modern .page-head p{font-size:14px;margin-top:4px}
+.theme-modern .m-tabs{margin:0 0 14px}.theme-modern .m-tabs button{padding:8px 14px 9px;font-size:14.5px}
+.theme-modern .m-card{padding:16px 20px;margin:0 0 14px;border-radius:18px}
+.theme-modern .m-month h2{font-size:28px;margin:6px 0 8px}
+.theme-modern .m-hero{padding:0}.theme-modern .m-net,.theme-modern .m-stat{padding:16px 20px;gap:7px}
+.theme-modern .m-big{font-size:38px}.theme-modern .m-big small{font-size:16px}.theme-modern .m-stat strong{font-size:clamp(19px,1.6vw,23px)}
+.theme-modern .m-label{font-size:13.5px}.theme-modern .m-net .m-label{font-size:12.5px}.theme-modern .m-net p{font-size:14px}.theme-modern .m-delta{font-size:13px}
+.theme-modern .m-attention{padding:10px 14px;margin:0 0 14px;border-radius:16px}.theme-modern .m-attention p{font-size:14.5px}.theme-modern .m-attention button{padding:7px 12px;font-size:14px}
+.theme-modern .m-three{gap:14px;margin:0 0 14px}
+.theme-modern .m-list h3,.theme-modern .m-chart h3,.theme-modern .m-analysis h3{font-size:16.5px}.theme-modern .m-list>small,.theme-modern .m-chart-head small,.theme-modern .m-analysis-head small{margin:2px 0 12px;font-size:13px}
+.theme-modern .m-row,.theme-modern .m-source{font-size:14.5px;padding-top:8px;padding-bottom:8px}
+.theme-modern .m-sum strong{font-size:21px}.theme-modern .m-sum>div{padding:12px 16px}
+.theme-modern .surface,.theme-modern .grouped-table{border-radius:18px}
+.theme-modern .surface-head{padding:16px 20px}.theme-modern .surface-head h2{font-size:18px}
+.theme-modern .tile{border-radius:16px;padding:14px 16px 12px}.theme-modern .tile-value{font-size:22px}
+.theme-modern .lc-row,.theme-modern .cu-row{padding-top:11px;padding-bottom:11px}
+.theme-modern .hub-floor,.theme-modern .hub-quick{padding:16px 20px;border-radius:18px}
+/* Hub on phones: app-style tiles like the reference (3 per row, count-only badges), filters in one scrolling row,
+   compact office boxes (4 per row) in the same rounded style */
+.hub-badge b{font-weight:inherit}
+.hub-room{border-radius:16px}
+@media(max-width:650px){
+ .hub-quick .hub-occ-line{display:none}.hub-quick .hub-floor-head{margin-bottom:10px}
+ .hub > .hub-quick .hub-apps,.hub-quick .hub-apps{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+ .hub-quick .hub-app{aspect-ratio:1/1;min-height:0;padding:12px 10px 10px;border-radius:18px}
+ .hub-quick .hub-app-top>svg{width:24px;height:24px}.hub-quick .hub-app-label{font-size:13.5px;line-height:1.15}.hub-quick .hub-app-label small{display:none}
+ .hub-badge-word{display:none}.hub-badge{padding:2px 8px;font-size:11.5px}
+ .hub-floor-head .chip-set{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;max-width:100%;padding-bottom:2px}.hub-floor-head .chip{flex:none}
+ .hub-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+ .hub-room{min-height:62px;padding:8px 7px;border-radius:12px;gap:2px}.hub-room b{font-size:11.5px;line-height:1.2}.hub-room span{font-size:10.5px}.hub-room small{font-size:10px}.hub-room-top svg{width:12px;height:12px}
+ .hub-group h3{font-size:13px;margin-bottom:6px}
+}
