@@ -20,7 +20,8 @@ export async function createInvoice(db:any,owner:string,body:unknown){
  }catch(e){const m=String((e as Error).message);if(/invoice_owner_payment/.test(m))throw new Error(ALREADY);if(/invoice_branch_year_number/.test(m)){if(attempt<5)continue;throw new Error('Could not get the next invoice number because several invoices were issued at once. Please try again.')}throw e}}
 }
 export const ALREADY='An invoice has already been issued for this payment. Open it from Accounts.';
-const day=(iso:string)=>new Date(iso+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+// "18 Sep 2026" (the same on every server; some locales print "Sept").
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],day=(iso:string)=>+iso.slice(8,10)+' '+MON[+iso.slice(5,7)-1]+' '+iso.slice(0,4);
 const aed=(n:number)=>'AED '+new Intl.NumberFormat('en-AE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
 // The invoice an income payment gets automatically: one line for the payment, VAT at the lease's rate. A payment
 // whose VAT does not match that rate is not invoiced automatically (it is reported, to be issued by hand).
