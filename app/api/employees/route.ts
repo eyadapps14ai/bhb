@@ -17,4 +17,11 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
  try{const r=await writeLogin(db,user,plan);return Response.json({id,loginId:r.id,signOut:r.signOut});}catch(e){if(!data.id)await db.prepare('DELETE FROM employees WHERE id=? AND owner=?').bind(id,owner).run();throw e}}
 catch(e){const r=failure(e);const b=await r.json() as {error:string};return Response.json({error:b.error==='This office code already exists.'?'This email already has an account.':b.error},{status:r.status});}}
 
-export async function DELETE(req:Request){try{const{db,owner,user}=await context(req,'employees','edit');allow(has(user,'delete'));const body=z.object({id:z.string().min(1)}).parse(await req.json());const record=await db.prepare('SELECT data FROM employees WHERE id=? AND owner=?').bind(body.id,owner).first<{data:string}>();if(!record)throw new Error('Employee not found.');checkBranch(user,JSON.parse(record.data).branch);await db.prepare('DELETE FROM employees WHERE id=? AND owner=?').bind(body.id,owner).run();return Response.json({id:body.id});}catch(e){return failure(e);}}
+// Deleting an employee unlinks their login (it no longer points to a missing employee). With loginOff, a Users & roles
+// editor also switches that sign-in off, under the usual login rules (super admins stay protected); checked first.
+export async function DELETE(req:Request){try{const{db,owner,user}=await context(req,'employees','edit');allow(has(user,'delete'));const body=z.object({id:z.string().min(1),loginOff:z.boolean().default(false)}).parse(await req.json());const record=await db.prepare('SELECT data FROM employees WHERE id=? AND owner=?').bind(body.id,owner).first<{data:string}>();if(!record)throw new Error('Employee not found.');checkBranch(user,JSON.parse(record.data).branch);
+ const login=await db.prepare("SELECT id,email,data FROM users WHERE data::jsonb->>'employeeId'=?").bind(body.id).first<{id:string;email:string;data:string}>();
+ let plan=null;if(login&&body.loginOff){allow(can(user,'users','edit'));const ud=JSON.parse(login.data);plan=await checkLogin(db,user,{...ud,id:login.id,email:login.email,employeeId:'',active:false,password:undefined})}
+ await db.prepare('DELETE FROM employees WHERE id=? AND owner=?').bind(body.id,owner).run();
+ if(plan)await writeLogin(db,user,plan);else if(login)await db.prepare("UPDATE users SET data=jsonb_set(data::jsonb,'{employeeId}','\"\"')::text WHERE id=?").bind(login.id).run();
+ return Response.json({id:body.id,login:login?(plan?'off':'unlinked'):null});}catch(e){return failure(e);}}

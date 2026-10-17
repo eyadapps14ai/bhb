@@ -16,6 +16,8 @@ export async function checkLogin(db:Database,user:Access,body:unknown,{newEmploy
  const superAdmin=user.roleId===SUPER_ADMIN,data=person.parse(body);
  if(!(await loadRoles(db)).some(r=>r.id===data.roleId))throw new Error('Choose a role.');if(data.roleId!==SUPER_ADMIN&&!data.branches.length)throw new Error('Choose at least one branch.');
  // A login can be linked to one employee record (their job, commission and leases sold).
+ // A login still pointing to a deleted employee is unlinked when saved, rather than refused.
+ if(data.employeeId&&!newEmployee&&data.id&&!(await db.prepare('SELECT id FROM employees WHERE id=?').bind(data.employeeId).first())){const was=await db.prepare('SELECT data FROM users WHERE id=?').bind(data.id).first<{data:string}>();if(was&&JSON.parse(was.data).employeeId===data.employeeId)data.employeeId=''}
  if(data.employeeId&&!newEmployee){if(!(await db.prepare('SELECT id FROM employees WHERE id=?').bind(data.employeeId).first()))throw new Error('Employee not found.');const taken=await db.prepare("SELECT id FROM users WHERE data::jsonb->>'employeeId'=? AND id<>?").bind(data.employeeId,data.id||'').first();if(taken)throw new Error('This employee already has a login.');}
  const existing=data.id?await db.prepare('SELECT data FROM users WHERE id=?').bind(data.id).first<{data:string}>():null;if(data.id&&!existing)throw new Error('User not found.');
  const old=existing?JSON.parse(existing.data):null,wasAdmin=old?.roleId===SUPER_ADMIN&&old?.active,staysAdmin=data.roleId===SUPER_ADMIN&&data.active;
