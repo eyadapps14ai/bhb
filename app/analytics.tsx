@@ -49,6 +49,7 @@ export function InvoiceGrid({invoices,offices,month}:{invoices:any[];offices:Off
   {id:'net',label:'Net',numeric:true,cell:i=>aed(i.totals?.net||0),total:l=>aed(l.reduce((a,i)=>a+(i.totals?.net||0),0))},
   {id:'vat',label:'VAT',numeric:true,cell:i=>aed(i.totals?.vat||0),total:l=>aed(l.reduce((a,i)=>a+(i.totals?.vat||0),0))},
   {id:'total',label:'Total (AED)',numeric:true,highlight:true,cell:i=>aed(i.totals?.total||0),total:l=>aed(l.reduce((a,i)=>a+(i.totals?.total||0),0))},
+  {id:'credited',label:'Credit notes',numeric:true,cell:i=>i.credited?.total?'−'+aed(i.credited.total):'—',total:l=>{const c=l.reduce((a,i)=>a+(i.credited?.total||0),0);return c?'−'+aed(c):'—'}},
  ];
  return <GroupedTable title="Invoices" rows={[...invoices].sort((a,b)=>b.issueDate.localeCompare(a.issueDate)||b.seq-a.seq)} rowKey={i=>i.id} columns={columns} search={i=>[invoiceNumber(i),i.buyerName,i.description,code(i.officeId)].join(' ')} initialGroups={['month']} empty="Invoices you issue appear here."
   filters={[{id:'all',label:'All',test:()=>true},{id:'month',label:'Reporting month',test:i=>i.issueDate?.slice(0,7)===month},{id:'payment',label:'Linked to a payment',test:i=>!!i.paymentId},{id:'vat',label:'With VAT',test:i=>(i.totals?.vat||0)>0}]}
