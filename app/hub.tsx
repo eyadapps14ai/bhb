@@ -4,8 +4,9 @@ import {Plus,ChevronRight,X,Building2,Briefcase,DoorOpen,Clock3,Ban,Monitor,Wall
 import {cashMetrics,type Office,type Payment} from '@/lib/records';
 import {contractValue} from '@/lib/access';
 import type {Deal,SalesStaff} from './admin-panels';
-// Dashboard (was the Hub): the month at a glance for the admin (cash flow, leases closed, deals closed, occupancy), each
-// salesperson's results this month, then every office on one floor grid (vacant white, occupied grey, reserved amber,
+// Dashboard (the only dashboard; it took over the Hub and My dashboard): the month at a glance (cash flow, leases
+// closed, deals closed, occupancy) and each salesperson's results, then the person's own part (middle: to-dos,
+// renewals, requests, contracts), then every office on one floor grid (vacant white, occupied grey, reserved amber,
 // inactive hatched). Clicking an office opens its quick actions. Each part shows only what the person's role allows.
 type State='occupied'|'reserved'|'vacant'|'inactive';
 const STATES:[State,string][]=[['occupied','Occupied'],['reserved','Reserved'],['vacant','Vacant'],['inactive','Inactive']];
@@ -22,8 +23,8 @@ const addDays=(d:string,n:number)=>{const x=new Date(d+'T00:00:00Z');x.setUTCDat
 const yearly=(o:Office)=>o.period==='Monthly'?o.rent*12:o.rent;
 type Filter='all'|State|'ending';
 
-export default function Hub({offices,payments,deals,staff,teamOf=null,month,asof,branch,showMoney,canCash,canContracts,canSales,showCommission,canLeaseEdit,canPay,isExpiring,onOpenOffice,onStartLease,onEditLease,onAddPayment,onGo}:{
- offices:Office[];payments:Payment[];deals:Deal[];staff:SalesStaff[];teamOf?:string|null;month:string;asof:string;branch:string;
+export default function Hub({offices,payments,deals,staff,teamOf=null,showMonth=true,showFloor=true,middle,month,asof,branch,showMoney,canCash,canContracts,canSales,showCommission,canLeaseEdit,canPay,isExpiring,onOpenOffice,onStartLease,onEditLease,onAddPayment,onGo}:{
+ offices:Office[];payments:Payment[];deals:Deal[];staff:SalesStaff[];teamOf?:string|null;showMonth?:boolean;showFloor?:boolean;middle?:React.ReactNode;month:string;asof:string;branch:string;
  showMoney:boolean;canCash:boolean;canContracts:boolean;canSales:boolean;showCommission:boolean;canLeaseEdit:boolean;canPay:boolean;
  isExpiring:(o:Office)=>boolean;onOpenOffice:(id:string)=>void;onStartLease:(o:Office)=>void;
  onEditLease:(o:Office)=>void;onAddPayment:(o?:Office)=>void;onGo:(view:string)=>void}){
@@ -68,12 +69,12 @@ export default function Hub({offices,payments,deals,staff,teamOf=null,month,asof
   {id:'deals',label:'Deals closed',value:n0(won.length),sub:won.length?(won.length-renewals)+' new · '+renewals+' '+(renewals===1?'renewal':'renewals'):'No deals yet',icon:Handshake,go:canSales?()=>onGo('sales'):canContracts?()=>onGo('contracts'):undefined},
   {id:'let',label:'Offices let',value:pct(occupied,physical.length)+'%',sub:vacant+' vacant · '+occupied+' occupied',icon:Building2,go:()=>{setFilter(vacant?'vacant':'all');document.getElementById('hub-floor-title')?.scrollIntoView({behavior:'smooth',block:'start'})}}];
  return <div className="hub">
-  <section className="surface dash-month" aria-labelledby="dash-month-title"><div className="hub-floor-head"><div><h2 id="dash-month-title">{thisMonth?'This month':'Month'} · {label}</h2><span className="hub-occ-line">{branch}{thisMonth?'':' · change the month in Cash flow'}</span></div></div>
+  {showMonth&&<section className="surface dash-month" aria-labelledby="dash-month-title"><div className="hub-floor-head"><div><h2 id="dash-month-title">{thisMonth?'This month':'Month'} · {label}</h2><span className="hub-occ-line">{branch}{thisMonth?'':' · change the month in Cash flow'}</span></div></div>
    <div className="dash-kpis">{kpis.map(k=>{const Icon=k.icon,body=<><span className="dash-kpi-top"><span>{k.label}</span><Icon size={18} aria-hidden="true"/></span><b className={k.tone}>{k.value}</b><small>{k.sub}</small></>;return k.go?<button key={k.id} type="button" className="dash-kpi" onClick={k.go}>{body}</button>:<div key={k.id} className="dash-kpi">{body}</div>})}</div>
    {canSales&&<div className="dash-sales"><h3><BadgePercent size={16} aria-hidden="true"/>{teamOf===null?'Sales team':'Your sales'} · {label}</h3>{sellers.length?<><ol className="dash-sellers">{list.map((x,i)=><li key={x.id}><span className="dash-rank">{i+1}</span><span className="dash-avatar" aria-hidden="true">{initials(x.name)}</span><span className="dash-who"><b>{x.name}</b><small>{x.deals?x.deals+' '+(x.deals===1?'deal':'deals')+(x.renewals?' · '+x.renewals+' renewal'+(x.renewals===1?'':'s'):''):'No deals yet'}</small></span><span className="dash-bar" aria-hidden="true"><i style={{width:Math.round(x.value/top*100)+'%'}}/></span><span className="dash-amt"><b>{aed(x.value)}</b>{showCommission&&<small>Commission {aed(x.commission)}</small>}</span></li>)}</ol>{(more>0||allSellers)&&<p className="dash-more">{more>0&&<span>{withDeals.length&&idle&&withDeals.length<=6?idle+' more with no deal yet this month.':more+' more.'}</span>}<button type="button" className="text-button" onClick={()=>setAllSellers(!allSellers)}>{allSellers?'Show fewer':'Show all '+sellers.length}</button></p>}</>:<p className="notes">{teamOf===null?'No Sales employees yet. Add them in Employees with Job: Sales.':teamOf?'No deals for you this month yet.':'Your login is not linked to a Sales employee, so your own results cannot show here.'}</p>}</div>}
-  </section>
-
-  <section className="surface hub-floor" aria-labelledby="hub-floor-title">
+  </section>}
+  {middle}
+  {showFloor&&<section className="surface hub-floor" aria-labelledby="hub-floor-title">
    <div className="hub-floor-head"><div><h2 id="hub-floor-title">Offices · {branch}</h2><span className="hub-occ-line"><b>{pct(occupied,physical.length)}%</b> of {physical.length} physical offices let{desks>0&&<> · {n0(desksTaken)} of {n0(desks)} desks</>}</span></div>
     <div className="chip-set" role="group" aria-label="Show offices">{([['all','All'],...STATES.slice(0,3),['ending','Ending soon']] as [Filter,string][]).map(([f,l])=><button key={f} type="button" className="chip" aria-pressed={filter===f} onClick={()=>setFilter(f)}>{l}</button>)}</div>
    </div>
@@ -84,7 +85,7 @@ export default function Hub({offices,payments,deals,staff,teamOf=null,month,asof
     </button>})}</div>{sel&&list.includes(sel)&&pickPanel}</div>:null}):<div className="empty compact"><Building2 size={34}/><h3>No offices yet</h3><p>Add the first office with New lease, then New office.</p></div>}
    {groups.length>0&&groups.every(([,list])=>!list.some(shown))&&<p className="notes">No offices match this filter.</p>}
    <ul className="hub-legend hub-legend-grid" aria-label="Colour key">{STATES.map(([s,l])=>{const I=ICON[s];return <li key={s}><span className={'hub-swatch is-'+s}/><I size={14} aria-hidden="true"/>{l}</li>})}<li><Monitor size={14} aria-hidden="true"/>Virtual</li><li><span className="hub-swatch is-occupied is-warn"/>Lease or licence ends within 30 days</li></ul>
-  </section>
+  </section>}
 
 
  </div>;
