@@ -1,4 +1,5 @@
-import {issuerSchema,invoiceSchema,invoiceTotals,autoInvoiceBlock,invoiceToReuse} from './invoices';
+import {issuerSchema,invoiceSchema,invoiceTotals,autoInvoiceBlock} from './invoices';
+import {inLeaseTerm} from './records';
 import {today} from './records';
 // Tax invoices: the one place that checks and saves an invoice (Accounts > Create invoice and the automatic ones).
 // Numbers run per branch and year without gaps: the next number is worked out inside the insert, and a unique index
@@ -8,7 +9,7 @@ export async function createInvoice(db:any,owner:string,body:unknown){
  // For a tenant the invoice follows the office (and its payment); for a customer without an office it follows the customer.
  let office:any=null,customer:any=null,payment:any=null;
  if(input.officeId){const row:any=await db.prepare('SELECT data FROM offices WHERE id=? AND owner=?').bind(input.officeId,owner).first();if(!row)throw new Error('Office not found.');office=JSON.parse(row.data)}
- else{const row:any=await db.prepare('SELECT data FROM customers WHERE id=? AND owner=?').bind(input.customerId,owner).first();if(!row)throw new Error('Customer not found.');customer={...JSON.parse(row.data),id:input.customerId}}
+ else{const row:any=await db.prepare('SELECT data FROM customers WHERE id=? AND owner=?').bind(input.customerId,owner).first();if(!row)throw new Error('Customer not found.');const c=JSON.parse(row.data);customer={id:input.customerId,branch:c.branch,name:c.name,trn:c.trn,billingAddress:c.billingAddress,contact:c.contact,email:c.email,phone:c.phone}}
  if(input.paymentId){const p:any=await db.prepare('SELECT data FROM payments WHERE id=? AND office_id=? AND owner=?').bind(input.paymentId,input.officeId,owner).first();if(!p)throw new Error('Payment not found for this office.');payment=JSON.parse(p.data);if(payment.direction!=='Income'||payment.status==='Cancelled')throw new Error('Choose an income payment that has not been cancelled.');if(payment.leaseId){const lease:any=await db.prepare('SELECT data FROM leases WHERE id=? AND owner=?').bind(payment.leaseId,owner).first();if(!lease)throw new Error('Archived lease not found.');office=JSON.parse(lease.data).office;}if(payment.amount<=0)throw new Error('A deposit-only payment cannot create a service tax invoice.');const duplicate=await db.prepare("SELECT id FROM invoices WHERE owner=? AND (data::jsonb->>'paymentId')=?").bind(owner,input.paymentId).first();if(duplicate)throw new Error(ALREADY);}
  const branch=(office||customer).branch||'BHB',issuerRow:any=await db.prepare('SELECT data FROM invoice_issuers WHERE id=? AND owner=?').bind(owner+':'+branch,owner).first();if(!issuerRow)throw new Error('Save your company details (seller) for this branch in Accounts before issuing a tax invoice.');
  const issuer=issuerSchema.parse(JSON.parse(issuerRow.data));const id=crypto.randomUUID(),data={...input,officeId:input.officeId||null,customerId:input.officeId?null:input.customerId,branch,issuer,office,customer,payment,totals:invoiceTotals(input),created:new Date().toISOString()};
@@ -34,14 +35,19 @@ export function invoiceFor(payment:any,office:any,issueDate:string){
 export {receivedForInvoice} from './invoices';
 const BLOCKED={vat:'its VAT does not match the lease VAT rate; issue this invoice by hand',hand:'this lease has an invoice made by hand in its current term; issue its invoices by hand'};
 // The automatic invoice for one received payment: skipped with a reason (VAT mismatch, lease invoiced by hand),
-// or the invoice of a bounced or cancelled payment it replaces is moved to it, or a new invoice is issued.
+// or the invoice of a bounced payment it names as replaced is moved to it, or a new invoice is issued.
 export async function autoInvoice(db:any,owner:string,payment:any,office:any,on:string):Promise<{id?:string;url?:string;reused?:boolean;skipped?:string}>{
  const rows=((await db.prepare('SELECT id,data FROM invoices WHERE owner=? AND office_id=?').bind(owner,payment.officeId).all()).results as any[]).map(r=>({...JSON.parse(r.data),id:r.id,officeId:payment.officeId}));
  if(rows.some(i=>i.paymentId===payment.id))return {skipped:'already invoiced'};
  const block=autoInvoiceBlock(payment,office,rows);if(block==='vat'){const rate=Number(office.vat)||0;return {skipped:payment.reference+': VAT is '+aed(payment.vatAmount||0)+' but the lease rate of '+rate+'% gives '+aed(Math.round(payment.amount*rate)/100)+'; issue this invoice by hand'}}if(block)return {skipped:payment.reference+': '+BLOCKED[block]};
- const linked=rows.map(i=>i.paymentId).filter(Boolean),statuses=new Map<string,string>();
- for(const pid of linked){const r:any=await db.prepare('SELECT data FROM payments WHERE id=? AND owner=?').bind(pid,owner).first();if(r)statuses.set(pid,JSON.parse(r.data).status)}
- const reuse=invoiceToReuse(payment,rows,pid=>statuses.get(pid));
- if(reuse){const moved:any=await db.prepare("UPDATE invoices SET data=(jsonb_set(jsonb_set(jsonb_set(data::jsonb,'{paymentId}',to_jsonb(?::text)),'{payment}',?::jsonb),'{replacedPayments}',COALESCE(data::jsonb->'replacedPayments','[]'::jsonb)||jsonb_build_array(?::text)))::text WHERE id=? AND owner=? AND data::jsonb->>'paymentId'=? RETURNING id").bind(payment.id,JSON.stringify(payment),(statuses.get(reuse.paymentId)||'').toLowerCase()+' payment '+(reuse.payment?.reference||reuse.paymentId),reuse.id,owner,reuse.paymentId).first();if(moved)return {id:reuse.id,url:'/invoice/'+reuse.id,reused:true}}
+ // A replacement for a bounced cheque takes over that cheque's invoice only when the person recording it chose the
+ // bounced payment (replacesPaymentId) and everything matches: same office, the original bounced (never cancelled,
+ // which needs a credit note), due in the current lease term, same tenant name and TRN, same amount and VAT.
+ if(payment.replacesPaymentId){const orig:any=await db.prepare('SELECT data FROM payments WHERE id=? AND owner=? AND office_id=?').bind(payment.replacesPaymentId,owner,payment.officeId).first(),o=orig?JSON.parse(orig.data):null,inv=rows.find(i=>i.paymentId===payment.replacesPaymentId);
+  const why=!o?'the replaced payment was not found on this office':o.status!=='Bounced'?'the replaced payment is not bounced (a cancelled one needs a credit note)':!inLeaseTerm(office,o.due)?'the replaced payment is from another lease term':!inv?'the replaced payment has no invoice':inv.buyerName!==office.company||(inv.buyerTrn||'')!==(office.trn||'')?'its invoice is for another tenant':Math.abs((inv.totals?.net||0)-payment.amount)>=0.01||Math.abs((inv.totals?.vat||0)-(payment.vatAmount||0))>=0.01?'the amount or VAT differs from its invoice':'';
+  if(why)return {skipped:payment.reference+': not invoiced automatically because '+why+'; issue it by hand'};
+  try{const moved:any=await db.prepare("UPDATE invoices SET data=(jsonb_set(jsonb_set(jsonb_set(data::jsonb,'{paymentId}',to_jsonb(?::text)),'{payment}',?::jsonb),'{replacedPayments}',COALESCE(data::jsonb->'replacedPayments','[]'::jsonb)||jsonb_build_object('reference',?::text,'paymentId',?::text,'at',?::text)))::text WHERE id=? AND owner=? AND data::jsonb->>'paymentId'=? RETURNING id").bind(payment.id,JSON.stringify(payment),o.reference,payment.replacesPaymentId,new Date().toISOString(),inv.id,owner,payment.replacesPaymentId).first();if(moved)return {id:inv.id,url:'/invoice/'+inv.id,reused:true}}
+  catch(e){if(/invoice_owner_payment/.test(String((e as Error).message)))return {skipped:'already invoiced'};throw e}
+  return {skipped:payment.reference+': the bounced payment\'s invoice changed meanwhile; try again'}}
  const made=await createInvoice(db,owner,invoiceFor(payment,office,on));return made;
 }

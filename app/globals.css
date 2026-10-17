@@ -473,3 +473,19 @@ table.m-share{min-width:0}@media(max-width:650px){.m-share th:nth-child(2){font-
 .hub-quick .hub-app{background:#f6f3ec}.hub-quick .hub-app:hover{background:#eee9df}.hub-quick .hub-app.is-hot{background:#f8eed8}
 .theme-modern .hub-quick{border-color:var(--m-line)}
 @media(max-width:650px){.hub-quick{padding:16px}}
+/* Lease page */
+.lease-page{display:flex;flex-direction:column;gap:18px}
+.lp-back{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;padding:0;font-size:14px}
+.lp-head{padding:22px 24px;display:flex;flex-direction:column;gap:14px}
+.lp-title{display:flex;flex-direction:column;gap:6px;align-items:flex-start}.lp-title h2{margin:0;font-size:24px}.lp-title p{margin:0;color:#6b665a;font-size:14.5px}.lp-title .pill{margin:0}
+.lp-head .actions{display:flex;flex-wrap:wrap;gap:8px}.lp-head .actions button{display:inline-flex;align-items:center;gap:6px}
+.lp-figures{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.lp-figures>div{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border:1px solid #efe7d4;border-radius:12px;background:#fdfbf6}
+.lp-figures small{font-size:12.5px;color:#6b665a}.lp-figures b{font-size:18px;font-variant-numeric:tabular-nums}
+.lp-table td small{display:block;font-size:12.5px;color:#6b665a}.lp-table tr.muted td{opacity:.55}.lp-table .pill{margin:0}
+.lp-act{white-space:nowrap}.lp-act button{display:inline-flex;align-items:center;gap:6px}
+.lp-receive{display:inline-flex;align-items:center;gap:6px}.lp-receive input{height:34px;padding:0 8px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:14px}
+.muted-text{color:#a39d8f}
+.lp-schedule .empty .primary{display:inline-flex;align-items:center;gap:6px}
+.theme-modern .lp-head,.theme-modern .lp-schedule{border-radius:24px}.theme-modern .lp-figures>div{border-color:var(--m-line);background:var(--m-soft)}
+@media(max-width:900px){.lp-figures{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.lp-head{padding:16px}.lp-title h2{font-size:20px}}

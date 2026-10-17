@@ -17,6 +17,3 @@ export function autoInvoiceBlock(p:{officeId:string|null;amount:number;vatAmount
  const when=(i:{supplyDate?:string;issueDate?:string})=>i.supplyDate||i.issueDate||'';
  return invoices.some(i=>!i.paymentId&&i.officeId===p.officeId&&!!office.start&&!!office.end&&when(i)>=office.start&&when(i)<=office.end)?'hand':'';
 }
-// An invoice whose payment bounced or was cancelled, for the same office and amount: the replacement payment takes it
-// over instead of getting a second invoice for the same rent.
-export function invoiceToReuse<I extends {id:string;paymentId?:string|null;officeId?:string;totals?:{net:number}}>(p:{id:string;officeId:string|null;amount:number},invoices:I[],statusOf:(paymentId:string)=>string|undefined){return invoices.find(i=>i.officeId===p.officeId&&!!i.paymentId&&i.paymentId!==p.id&&Math.abs((i.totals?.net||0)-p.amount)<0.01&&['Bounced','Cancelled'].includes(statusOf(i.paymentId)||''))}

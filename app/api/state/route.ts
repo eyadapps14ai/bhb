@@ -10,7 +10,7 @@ const money=can(user,'cash')||can(user,'workbook')||can(user,'contracts'),people
 // Sales employees: names for the Sold by field and the commission page (inactive kept for past deals);
 // rates only for those allowed to see every commission, or for the salesperson's own record.
 const seeAll=has(user,'allCommissions')||can(user,'users');
-const staff=rows(employees).map(parse),salesStaff=staff.filter(e=>e.job==='Sales').map(e=>({id:e.id,name:e.name,branch:e.branch,active:e.status!=='Inactive',...(seeAll||(user.employeeId&&e.id===user.employeeId)?{commissionNew:e.commissionNew??DEFAULT_RATES.commissionNew,commissionRenewal:e.commissionRenewal??DEFAULT_RATES.commissionRenewal}:{})}));
+const staff=rows(employees).map(parse),salesStaff=staff.filter(e=>e.job==='Sales').map(e=>({id:e.id,name:e.name,branch:e.branch,active:e.status!=='Inactive',...(seeAll||(can(user,'sales')&&user.employeeId&&e.id===user.employeeId)?{commissionNew:e.commissionNew??DEFAULT_RATES.commissionNew,commissionRenewal:e.commissionRenewal??DEFAULT_RATES.commissionRenewal}:{})}));
 // Cash-basis commission: cleared rent received against the leases this person may see commission for
 // (every seller with "see every commission", otherwise only their own), with just the fields the maths needs.
 const leaseList=rows(leases).filter(r=>ids.has(r.officeId!)).map(parse),archived=new Set(leaseList.flatMap(l=>l.paymentIds||[])),allPayments=rows(payments).map(parse),counts=(seller?:string)=>!!seller&&(seeAll||seller===user.employeeId);

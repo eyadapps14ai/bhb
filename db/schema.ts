@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS customers (
   data text NOT NULL
 );
 -- An invoice is for an office (a tenant) or for a customer without an office.
-ALTER TABLE invoices ALTER COLUMN office_id DROP NOT NULL;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'invoices' AND column_name = 'office_id' AND is_nullable = 'NO') THEN ALTER TABLE invoices ALTER COLUMN office_id DROP NOT NULL; END IF; END $$;
 -- One-time data changes, each recorded so it never runs twice (a later change by an admin is kept).
 CREATE TABLE IF NOT EXISTS migrations (
   id text PRIMARY KEY,
