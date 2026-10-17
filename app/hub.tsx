@@ -55,7 +55,7 @@ export default function Hub({offices,payments,enquiries,month,asof,branch,showMo
  const tip=(o:Office)=>[o.code,STATES.find(([s])=>s===stateOf(o))![1],o.company,o.end&&'Lease ends '+day(o.end),showMoney&&o.rent?aed(yearly(o))+' a year':'',o.area?o.area+' sq ft':'',o.desks?o.desks+' desks':''].filter(Boolean).join(' · ');
  // One tile per action and page; the figure under the label and the badge come from this branch's records.
  type App={id:string;label:string;short?:string;icon:React.ElementType;sub?:string;badge?:string;onClick:()=>void};
- // The Hub boxes are the main actions only; everything else is in the menu on the right.
+ // The Hub boxes are the main actions only; everything else is in the menu.
  const MAIN=['offices','contracts','cash','enquiries'];
  const SHORT_LABEL:Record<string,string>={offices:'Offices',contracts:'Leases',cash:'Cash',sales:'Sales',users:'Users','add-payment':'Payment'};
  const sub:Record<string,string|undefined>={offices:occupied+' of '+physical.length+' let',contracts:ending.length?ending.length+' ending in 60 days':'None ending soon',enquiries:enquiries.length+' in the inbox',cash:m&&showMoney?aed(m.cashIn)+' in this month':undefined};
