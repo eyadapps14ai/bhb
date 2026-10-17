@@ -1,6 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {Plus,ChevronRight,X,Building2,Briefcase,DoorOpen,Clock3,Ban,Monitor,Wallet,ScrollText,Handshake,BadgePercent} from 'lucide-react';
+import {Plus,ChevronLeft,ChevronRight,X,Building2,Briefcase,DoorOpen,Clock3,Ban,Monitor,Wallet,ScrollText,Handshake,BadgePercent} from 'lucide-react';
 import {cashMetrics,type Office,type Payment} from '@/lib/records';
 import {contractValue} from '@/lib/access';
 import type {Deal,SalesStaff} from './admin-panels';
@@ -21,10 +21,11 @@ const SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','
 const day=(iso:string)=>iso?+iso.slice(8,10)+' '+SHORT[+iso.slice(5,7)-1]+' '+iso.slice(0,4):'';
 const addDays=(d:string,n:number)=>{const x=new Date(d+'T00:00:00Z');x.setUTCDate(x.getUTCDate()+n);return x.toISOString().slice(0,10)};
 const yearly=(o:Office)=>o.period==='Monthly'?o.rent*12:o.rent;
+const shiftMonth=(m:string,n:number)=>{const d=new Date(m+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+n);return d.toISOString().slice(0,7)};
 type Filter='all'|State|'ending';
 
-export default function Hub({offices,payments,deals,staff,teamOf=null,showMonth=true,showFloor=true,middle,month,asof,branch,showMoney,canCash,canContracts,canSales,showCommission,canLeaseEdit,canPay,isExpiring,onOpenOffice,onStartLease,onEditLease,onAddPayment,onGo}:{
- offices:Office[];payments:Payment[];deals:Deal[];staff:SalesStaff[];teamOf?:string|null;showMonth?:boolean;showFloor?:boolean;middle?:React.ReactNode;month:string;asof:string;branch:string;
+export default function Hub({offices,payments,deals,staff,teamOf=null,showMonth=true,showFloor=true,middle,month,onMonth,asof,branch,showMoney,canCash,canContracts,canSales,showCommission,canLeaseEdit,canPay,isExpiring,onOpenOffice,onStartLease,onEditLease,onAddPayment,onGo}:{
+ offices:Office[];payments:Payment[];deals:Deal[];staff:SalesStaff[];teamOf?:string|null;showMonth?:boolean;showFloor?:boolean;middle?:React.ReactNode;month:string;onMonth?:(month:string)=>void;asof:string;branch:string;
  showMoney:boolean;canCash:boolean;canContracts:boolean;canSales:boolean;showCommission:boolean;canLeaseEdit:boolean;canPay:boolean;
  isExpiring:(o:Office)=>boolean;onOpenOffice:(id:string)=>void;onStartLease:(o:Office)=>void;
  onEditLease:(o:Office)=>void;onAddPayment:(o?:Office)=>void;onGo:(view:string)=>void}){
@@ -69,7 +70,8 @@ export default function Hub({offices,payments,deals,staff,teamOf=null,showMonth=
   {id:'deals',label:teamOf===null?'Deals closed':'Your deals closed',value:n0(won.length),sub:won.length?(won.length-renewals)+' new · '+renewals+' '+(renewals===1?'renewal':'renewals'):'No deals yet',icon:Handshake,go:canSales?()=>onGo('sales'):canContracts?()=>onGo('contracts'):undefined},
   {id:'let',label:'Offices let',value:pct(occupied,physical.length)+'%',sub:vacant+' vacant · '+occupied+' occupied',icon:Building2,go:()=>{setFilter(vacant?'vacant':'all');document.getElementById('hub-floor-title')?.scrollIntoView({behavior:'smooth',block:'start'})}}];
  return <div className="hub">
-  {showMonth&&<section className="surface dash-month" aria-labelledby="dash-month-title"><div className="hub-floor-head"><div><h2 id="dash-month-title">{thisMonth?'This month':'Month'} · {label}</h2><span className="hub-occ-line">{branch}{thisMonth?'':' · change the month in Cash flow'}</span></div></div>
+  {showMonth&&<section className="surface dash-month" aria-labelledby="dash-month-title"><div className="hub-floor-head"><div><h2 id="dash-month-title">{thisMonth?'This month':'Month'} · {label}</h2><span className="hub-occ-line">{branch}{thisMonth||onMonth?'':' · change the month in Cash flow'}</span></div>
+    {onMonth&&<div className="dash-month-nav" role="group" aria-label="Month shown"><button type="button" className="icon-close" aria-label="Previous month" onClick={()=>onMonth(shiftMonth(month,-1))}><ChevronLeft size={18}/></button><input type="month" aria-label="Month" value={month} onChange={e=>e.target.value&&onMonth(e.target.value)}/><button type="button" className="icon-close" aria-label="Next month" onClick={()=>onMonth(shiftMonth(month,1))}><ChevronRight size={18}/></button>{!thisMonth&&<button type="button" className="text-button" onClick={()=>onMonth(asof.slice(0,7))}>This month</button>}</div>}</div>
    <div className="dash-kpis">{kpis.map(k=>{const Icon=k.icon,body=<><span className="dash-kpi-top"><span>{k.label}</span><Icon size={18} aria-hidden="true"/></span><b className={k.tone}>{k.value}</b><small>{k.sub}</small></>;return k.go?<button key={k.id} type="button" className="dash-kpi" onClick={k.go}>{body}</button>:<div key={k.id} className="dash-kpi">{body}</div>})}</div>
    {canSales&&<div className="dash-sales"><h3><BadgePercent size={16} aria-hidden="true"/>{teamOf===null?'Sales team':'Your sales'} · {label}</h3>{sellers.length?<><ol className="dash-sellers">{list.map((x,i)=><li key={x.id}><span className="dash-rank">{i+1}</span><span className="dash-avatar" aria-hidden="true">{initials(x.name)}</span><span className="dash-who"><b>{x.name}</b><small>{x.deals?x.deals+' '+(x.deals===1?'deal':'deals')+(x.renewals?' · '+x.renewals+' renewal'+(x.renewals===1?'':'s'):''):'No deals yet'}</small></span><span className="dash-bar" aria-hidden="true"><i style={{width:Math.round(x.value/top*100)+'%'}}/></span><span className="dash-amt"><b>{aed(x.value)}</b>{showCommission&&<small>Commission {aed(x.commission)}</small>}</span></li>)}</ol>{(more>0||allSellers)&&<p className="dash-more">{more>0&&<span>{withDeals.length&&idle&&withDeals.length<=6?idle+' more with no deal yet this month.':more+' more.'}</span>}<button type="button" className="text-button" onClick={()=>setAllSellers(!allSellers)}>{allSellers?'Show fewer':'Show all '+sellers.length}</button></p>}</>:<p className="notes">{teamOf===null?'No Sales employees yet. Add them in Employees with Job: Sales.':teamOf?'No deals for you this month yet.':'Your login is not linked to a Sales employee, so your own results cannot show here.'}</p>}</div>}
   </section>}
