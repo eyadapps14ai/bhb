@@ -56,7 +56,7 @@ export default function Hub({offices,payments,deals,staff,teamOf=null,month,asof
  // and each salesperson's results. Commission only for those allowed to see every salesperson's commission.
  const label=LONG[+month.slice(5,7)-1]+' '+month.slice(0,4),thisMonth=asof.slice(0,7)===month;
  const closed=offices.filter(o=>o.company&&o.start&&!o.leaseClosed&&o.start.slice(0,7)===month),closedValue=closed.reduce((a,o)=>a+contractValue(o).value,0);
- const won=deals.filter(d=>d.status==='Current'&&d.start.slice(0,7)===month),renewals=won.filter(d=>d.dealType==='Renewal').length;
+ const won=deals.filter(d=>d.status==='Current'&&d.start.slice(0,7)===month&&(teamOf===null||d.sellerId===teamOf)),renewals=won.filter(d=>d.dealType==='Renewal').length;
  // Without "see every commission" (teamOf set) only the person's own line shows, as on the Sales commission page.
  const sellers=staff.filter(t=>(teamOf===null||t.id===teamOf)&&(t.active||won.some(d=>d.sellerId===t.id))).map(t=>{const mine=won.filter(d=>d.sellerId===t.id);return {id:t.id,name:t.name,deals:mine.length,renewals:mine.filter(d=>d.dealType==='Renewal').length,value:mine.reduce((a,d)=>a+d.value,0),commission:mine.reduce((a,d)=>a+d.commission,0)}}).sort((a,b)=>b.value-a.value||b.deals-a.deals||a.name.localeCompare(b.name));
  // The six best first; people without a deal this month are counted in one line unless the list is opened.
@@ -65,7 +65,7 @@ export default function Hub({offices,payments,deals,staff,teamOf=null,month,asof
  type Kpi={id:string;label:string;value:string;sub:string;icon:React.ElementType;tone?:string;go?:()=>void};
  const kpis:Kpi[]=[...(m&&showMoney?[{id:'cash',label:'Cash flow',value:(m.net<0?'−':'')+aed(Math.abs(m.net)),sub:'In '+aed(m.cashIn)+' · out '+aed(m.cashOut),icon:Wallet,tone:m.net<0?'is-neg':'is-pos',go:()=>onGo('cash')}]:[]),
   {id:'leases',label:'Leases closed',value:showMoney?aed(closedValue):n0(closed.length),sub:showMoney?closed.length+' '+(closed.length===1?'lease':'leases')+', contract value':'Leases starting this month',icon:ScrollText,go:canContracts?()=>onGo('contracts'):undefined},
-  {id:'deals',label:'Deals closed',value:n0(won.length),sub:won.length?(won.length-renewals)+' new · '+renewals+' '+(renewals===1?'renewal':'renewals'):'No deals yet',icon:Handshake,go:canSales?()=>onGo('sales'):canContracts?()=>onGo('contracts'):undefined},
+  {id:'deals',label:teamOf===null?'Deals closed':'Your deals closed',value:n0(won.length),sub:won.length?(won.length-renewals)+' new · '+renewals+' '+(renewals===1?'renewal':'renewals'):'No deals yet',icon:Handshake,go:canSales?()=>onGo('sales'):canContracts?()=>onGo('contracts'):undefined},
   {id:'let',label:'Offices let',value:pct(occupied,physical.length)+'%',sub:vacant+' vacant · '+occupied+' occupied',icon:Building2,go:()=>{setFilter(vacant?'vacant':'all');document.getElementById('hub-floor-title')?.scrollIntoView({behavior:'smooth',block:'start'})}}];
  return <div className="hub">
   <section className="surface dash-month" aria-labelledby="dash-month-title"><div className="hub-floor-head"><div><h2 id="dash-month-title">{thisMonth?'This month':'Month'} · {label}</h2><span className="hub-occ-line">{branch}{thisMonth?'':' · change the month in Cash flow'}</span></div></div>
