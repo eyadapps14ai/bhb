@@ -3,9 +3,9 @@ import {has} from '@/lib/access';
 import {issuerSchema,invoiceSchema} from '@/lib/invoices';
 import {today} from '@/lib/records';
 import {createInvoice,autoInvoice,receivedForInvoice} from '@/lib/server-invoices';
-export async function POST(req:Request){try{const{db,owner,user}=await context(req,'cash','view');allow(has(user,'invoices'));const body:any=await req.json();// Supplier details may be copied to both branches, but the automatic-invoice start date belongs to one branch and only
- // a super admin may set or change it (it decides which received payments get invoices in bulk).
- if(body.action==='saveIssuer'){const issuer=issuerSchema.parse(body),branches=body.both?['BHB','111']:[issuer.branch];for(const b of branches)checkBranch(user,b);
+export async function POST(req:Request){try{const{db,owner,user}=await context(req,'cash','view');allow(has(user,'invoices'));const body:any=await req.json();// Company and bank details are printed on every invoice (clients pay into that IBAN), so only a super admin can
+ // change them, like the automatic-invoice start date. Details may be copied to both branches; the start date belongs to one.
+ if(body.action==='saveIssuer'){if(user.roleId!=='super-admin')throw new Error('Only a super admin can change the company and bank details printed on invoices.');const issuer=issuerSchema.parse(body),branches=body.both?['BHB','111']:[issuer.branch];for(const b of branches)checkBranch(user,b);
   const saved=new Map<string,any>();for(const b of branches){const r:any=await db.prepare('SELECT data FROM invoice_issuers WHERE id=? AND owner=?').bind(owner+':'+b,owner).first();saved.set(b,r?JSON.parse(r.data):null)}
   if((saved.get(issuer.branch)?.autoFrom||'')!==issuer.autoFrom&&user.roleId!=='super-admin')throw new Error('Only a super admin can set or change the date automatic invoices start.');
   await db.batch(branches.map(branch=>db.prepare('INSERT INTO invoice_issuers(id,owner,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data WHERE invoice_issuers.owner=excluded.owner').bind(owner+':'+branch,owner,JSON.stringify({...issuer,branch,autoFrom:branch===issuer.branch?issuer.autoFrom:saved.get(branch)?.autoFrom||''}))));return Response.json({saved:true});}
