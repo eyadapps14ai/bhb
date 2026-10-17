@@ -9,7 +9,8 @@ const officeList=rows(offices).map(parse).filter(o=>inBranch(o.branch)),ids=new 
 const money=can(user,'cash')||can(user,'workbook')||can(user,'contracts'),people=rows(users).map(r=>({...JSON.parse(r.data),id:r.id,email:r.email}));
 // Sales employees: names for the Sold by field and the commission page (inactive kept for past deals);
 // rates only for those allowed to see every commission, or for the salesperson's own record.
-const seeAll=has(user,'allCommissions')||can(user,'users');
+// Every salesperson's rates and cash only for people who can open the Sales page and may see every commission.
+const seeAll=can(user,'sales')&&(has(user,'allCommissions')||can(user,'users'));
 const staff=rows(employees).map(parse),salesStaff=staff.filter(e=>e.job==='Sales').map(e=>({id:e.id,name:e.name,branch:e.branch,active:e.status!=='Inactive',...(seeAll||(can(user,'sales')&&user.employeeId&&e.id===user.employeeId)?{commissionNew:e.commissionNew??DEFAULT_RATES.commissionNew,commissionRenewal:e.commissionRenewal??DEFAULT_RATES.commissionRenewal}:{})}));
 // Cash-basis commission: cleared rent received against the leases this person may see commission for
 // (every seller with "see every commission", otherwise only their own), with just the fields the maths needs.

@@ -12,5 +12,5 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
  // invoices are off until that date is set). See autoInvoice for when it is skipped or reuses a bounced payment's invoice.
  let invoice:any=null,invoiceNote='';
  if(data.direction==='Income'&&data.status==='Cleared'&&existing?.status!=='Cleared'&&data.amount>0&&data.officeId&&!data.leaseId&&has(user,'invoices')){try{const row:any=await db.prepare('SELECT data FROM offices WHERE id=? AND owner=?').bind(data.officeId,owner).first(),office=JSON.parse(row.data),issuer:any=await db.prepare('SELECT data FROM invoice_issuers WHERE id=? AND owner=?').bind(owner+':'+(office.branch||'BHB'),owner).first(),from=issuer?JSON.parse(issuer.data).autoFrom||'':'';
-  if(receivedForInvoice(data,from)){const r=await autoInvoice(db,owner,{...data,id},office,today());if(r.id)invoice=r;else if(r.skipped&&r.skipped!=='already invoiced')invoiceNote=r.skipped}}catch(e){const m=(e as Error).message;if(m!==ALREADY)invoiceNote=m}}
+  if(receivedForInvoice(data,from)){const r=await autoInvoice(db,owner,{...data,id},office,today(),{userId:user.userId,name:user.name});if(r.id)invoice=r;else if(r.skipped&&r.skipped!=='already invoiced')invoiceNote=r.skipped}}catch(e){const m=(e as Error).message;if(m!==ALREADY)invoiceNote=m}}
  return Response.json({id,invoice,invoiceNote});}catch(e){return failure(e);}}
