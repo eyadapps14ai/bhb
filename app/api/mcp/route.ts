@@ -4,8 +4,8 @@ import {accessForKey} from '@/lib/claude-keys';
 import {accessForToken,SCOPE} from '@/lib/oauth';
 import {tools,isTool,callTool} from '@/lib/mcp-tools';
 import type {Access} from '@/lib/access';
-// MCP endpoint (Streamable HTTP, stateless JSON replies). Claude calls it with an OAuth access token from
-// /api/oauth, or a personal key (bhb_...) for Claude Code, and every call runs as that person.
+// MCP endpoint (Streamable HTTP, stateless JSON replies). Claude or ChatGPT calls it with an OAuth access token
+// from /api/oauth, or a personal key (bhb_...) for Claude Code, and every call runs as that person.
 const PROTOCOLS=['2025-06-18','2025-03-26','2024-11-05'];
 const json=(body:unknown,status=200,extra:Record<string,string>={})=>Response.json(body,{status,headers:{'Cache-Control':'no-store',...extra}});
 const rpc=(id:unknown,result:unknown)=>json({jsonrpc:'2.0',id,result});
