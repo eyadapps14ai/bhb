@@ -122,7 +122,7 @@ export function AccountsOverview({invoices,payments,offices,month,drillPay}:{inv
  const now=of(month),before=of(pm),ytd=invoices.filter(i=>i.issueDate?.slice(0,4)===year&&i.issueDate.slice(0,7)<=month);
  const linked=new Set(invoices.map(i=>i.paymentId).filter(Boolean)),uninvoiced=(p:Payment)=>p.direction==='Income'&&p.status==='Cleared'&&(p.incomeType||'Rent')==='Rent'&&!!p.officeId&&!linked.has(p.id)&&p.actual?.slice(0,7)===month;
  const open=payments.filter(uninvoiced),d=delta(sum(now,'total'),sum(before,'total'),monthName(pm).slice(0,3),true);
- const buyers=new Map<string,number>();for(const i of ytd)buyers.set(i.buyerName||'No buyer',(buyers.get(i.buyerName||'No buyer')||0)+(i.totals?.total||0));
+ const buyers=new Map<string,number>();for(const i of ytd)buyers.set(i.buyerName||'No buyer',(buyers.get(i.buyerName||'No buyer')||0)+(i.totals?.total||0)-(i.credited?.total||0));
  const months=[month,pm,prevMonth(pm)];
  return <>
   <MHero label={'Invoiced · '+monthName(month)} chip={d} unit="AED" value={n0(sum(now,'total'))} bar={[[sum(now,'net'),BLUE],[sum(now,'vat'),ORANGE]]}
@@ -140,8 +140,8 @@ export function AccountsOverview({invoices,payments,offices,month,drillPay}:{inv
 }
 export function InvoiceAnalysis({invoices,offices}:{invoices:any[];offices:Office[]}){
  const code=(id:string)=>offices.find(o=>o.id===id)?.code||'No office';
- return <MAnalysis title="Analyze invoices" subtitle="Invoice totals incl. VAT · this branch" rows={invoices} unit="Total (AED)" filename="invoices" measure={i=>i.totals?.total||0} format={aed0}
+ return <MAnalysis title="Analyze invoices" subtitle="Invoice totals incl. VAT, after credit notes · this branch" rows={invoices} unit="Total (AED)" filename="invoices" measure={i=>(i.totals?.total||0)-(i.credited?.total||0)} format={aed0}
   describe={i=>({label:invoiceNumber(i),sub:(i.buyerName||'No buyer')+' · '+shortDate(i.issueDate)})} onOpen={i=>window.open('/invoice/'+i.id,'_blank','noopener')} search={i=>[invoiceNumber(i),i.buyerName,i.description,code(i.officeId)].join(' ')}
   groupings={[{id:'month',label:'Month',key:i=>monthKey(i.issueDate),order:i=>i.issueDate.slice(0,7),sort:'desc'},{id:'buyer',label:'Buyer',key:i=>i.buyerName||'No buyer'},{id:'office',label:'Office',key:i=>code(i.officeId)}]}
-  summary={l=>[['Before VAT',aed0(l.reduce((a,i)=>a+(i.totals?.net||0),0))],['VAT',aed0(l.reduce((a,i)=>a+(i.totals?.vat||0),0))],['Total',aed0(l.reduce((a,i)=>a+(i.totals?.total||0),0))]]}/>;
+  summary={l=>[['Before VAT',aed0(l.reduce((a,i)=>a+(i.totals?.net||0)-(i.credited?.net||0),0))],['VAT',aed0(l.reduce((a,i)=>a+(i.totals?.vat||0)-(i.credited?.vat||0),0))],['Credit notes',aed0(-l.reduce((a,i)=>a+(i.credited?.total||0),0))],['Total',aed0(l.reduce((a,i)=>a+(i.totals?.total||0)-(i.credited?.total||0),0))]]}/>;
 }

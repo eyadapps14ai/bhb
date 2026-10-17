@@ -60,7 +60,7 @@ export async function autoInvoice(db:any,owner:string,payment:any,office:any,on:
   // A credited invoice is not moved: credited in full, the replacement gets its own invoice; credited in part, by hand.
   const cr=(await db.prepare("SELECT COALESCE(SUM((data::jsonb->'credit'->>'net')::numeric),0) AS net FROM credit_notes WHERE owner=? AND invoice_id=?").bind(owner,inv.id).first()) as {net:string}|null,creditedNet=Number(cr?.net||0);
   if(creditedNet>0){if(creditedNet>=(inv.totals?.net||0)-0.004)return await createInvoice(db,owner,invoiceFor(payment,office,on));return {skipped:payment.reference+': not invoiced automatically because the bounced payment\'s invoice is partly credited; issue it by hand'}}
-  try{const moved:any=await db.prepare("UPDATE invoices SET data=(jsonb_set(jsonb_set(jsonb_set(data::jsonb,'{paymentId}',to_jsonb(?::text)),'{payment}',?::jsonb),'{replacedPayments}',COALESCE(data::jsonb->'replacedPayments','[]'::jsonb)||jsonb_build_object('reference',?::text,'paymentId',?::text,'at',?::text,'by',?::text,'byName',?::text)))::text WHERE id=? AND owner=? AND data::jsonb->>'paymentId'=? RETURNING id").bind(payment.id,JSON.stringify(payment),o.reference,payment.replacesPaymentId,new Date().toISOString(),by.userId,by.name,inv.id,owner,payment.replacesPaymentId).first();if(moved)return {id:inv.id,url:'/invoice/'+inv.id,reused:true}}
+  try{const moved:any=await db.prepare("UPDATE invoices SET data=(jsonb_set(jsonb_set(jsonb_set(data::jsonb,'{paymentId}',to_jsonb(?::text)),'{payment}',?::jsonb),'{replacedPayments}',COALESCE(data::jsonb->'replacedPayments','[]'::jsonb)||jsonb_build_object('reference',?::text,'paymentId',?::text,'at',?::text,'by',?::text,'byName',?::text)))::text WHERE id=? AND owner=? AND data::jsonb->>'paymentId'=? AND NOT EXISTS (SELECT 1 FROM credit_notes c WHERE c.owner=invoices.owner AND c.invoice_id=invoices.id) RETURNING id").bind(payment.id,JSON.stringify(payment),o.reference,payment.replacesPaymentId,new Date().toISOString(),by.userId,by.name,inv.id,owner,payment.replacesPaymentId).first();if(moved)return {id:inv.id,url:'/invoice/'+inv.id,reused:true}}
   catch(e){if(/invoice_owner_payment/.test(String((e as Error).message)))return {skipped:'already invoiced'};throw e}
   return {skipped:payment.reference+': the bounced payment\'s invoice changed meanwhile; try again'}}
  const made=await createInvoice(db,owner,invoiceFor(payment,office,on));return made;
@@ -77,8 +77,9 @@ export async function createCreditNote(db:Database,owner:string,body:unknown,by:
  const done=await db.prepare("SELECT COALESCE(SUM((data::jsonb->'credit'->>'net')::numeric),0) AS net,COALESCE(SUM((data::jsonb->'credit'->>'vat')::numeric),0) AS vat FROM credit_notes WHERE owner=? AND invoice_id=?").bind(owner,input.invoiceId).first<{net:string;vat:string}>();
  const doneNet=Number(done?.net||0),leftNet=round(inv.totals.net-doneNet),leftVat=round(inv.totals.vat-Number(done?.vat||0));
  if(leftNet<=0.004)throw new Error('This invoice is already credited in full.');
- const net=round(input.net);if(net>leftNet+0.004)throw new Error('At most '+aed(leftNet)+' before VAT is left to credit on this invoice.');
- const vat=Math.abs(net-leftNet)<0.005?leftVat:round(net*(Number(inv.vatRate)||0)/100),after={net:round(leftNet-net),vat:round(leftVat-vat)};
+ const net=round(input.net);if(net<0.01)throw new Error('Enter at least AED 0.01 to credit.');if(net>leftNet+0.004)throw new Error('At most '+aed(leftNet)+' before VAT is left to credit on this invoice.');
+ // VAT in fils (no float drift on .5 cases); the rest takes exactly the VAT left, and a part never more than that.
+ const vat=Math.abs(net-leftNet)<0.005?leftVat:Math.max(0,Math.min(leftVat,Math.round(Math.round(net*100)*(Number(inv.vatRate)||0)/100)/100)),after={net:round(leftNet-net),vat:round(leftVat-vat)};
  const last=await db.prepare("SELECT MAX(data::jsonb->>'issueDate') AS d FROM credit_notes WHERE owner=? AND data::jsonb->>'branch'=? AND substr(data::jsonb->>'issueDate',1,4)=?").bind(owner,branch,year).first<{d:string|null}>();
  if(last?.d&&input.issueDate<last.d)throw new Error('The last credit note in this series is dated '+day(last.d)+'. Date this one '+day(last.d)+' or later, so numbers and dates stay in order.');
  const id=crypto.randomUUID(),data={invoiceId:input.invoiceId,invoiceNumber:invoiceNumber({...inv,seq:row.seq}),invoiceDate:inv.issueDate,branch,issueDate:input.issueDate,reason:input.reason,
@@ -90,5 +91,5 @@ export async function createCreditNote(db:Database,owner:string,body:unknown,by:
     .bind(id,owner,input.invoiceId,JSON.stringify(data),owner,branch,year,owner,input.invoiceId,String(doneNet),owner,branch,year,input.issueDate)]);
   const r=ins.results[0] as {number:number}|undefined;if(!r)throw new Error('Another credit note was issued for this invoice or series just now. Reload and try again.');
   return {id,url:'/credit-note/'+id,number:r.number};
- }catch(e){if(/credit_note_branch_year_number/.test(String((e as Error).message))&&attempt<5)continue;throw e}}
+ }catch(e){if(/credit_note_branch_year_number/.test(String((e as Error).message))){if(attempt<5)continue;throw new Error('Could not get the next credit note number because several were issued at once. Please try again.')}throw e}}
 }
