@@ -670,3 +670,10 @@ button.dash-kpi:hover{border-color:#c9a65f;box-shadow:0 2px 10px #b5852f1f}
 .inv-lines{display:flex;flex-direction:column;gap:10px;margin:6px 0 10px}.inv-line{display:grid;grid-template-columns:2fr 1.6fr .7fr 1fr .8fr;gap:8px 10px;align-items:end;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:0}.inv-line .wide{grid-column:1/-1}.inv-line .text-button{grid-column:1/-1;justify-self:start;padding:0}
 .invoice-table td small{display:block;font-size:11px;color:#6f6a5c;margin-top:2px}.invoice-table tr.inv-outside td{background:#faf8f2}
 @media(max-width:650px){.inv-line{grid-template-columns:1fr 1fr}}
+/* New lease wizard: tenant smart search, the chosen office, the check-and-save list. */
+.tenant-search .tenant-hits{list-style:none;margin:6px 0 0;padding:4px;border:1px solid #e4ddcc;border-radius:10px;background:#fff;max-height:260px;overflow:auto;box-shadow:0 6px 18px #1d1d1b14}
+.tenant-hits li{display:flex;flex-direction:column;padding:8px 10px;border-radius:8px;cursor:pointer}.tenant-hits li small{color:#6b665a;font-size:12.5px}
+.tenant-hits li[aria-selected=true]{background:#f6efe0}
+.lease-office-pick{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e9e1cf;border-radius:12px;background:#fbf8f1}.lease-office-pick span{display:flex;flex-direction:column;flex:1;min-width:0}.lease-office-pick small{color:#6b665a}
+.lease-review{grid-column:1/-1}
+.theme-modern .tenant-search .tenant-hits{border-color:var(--m-line)}.theme-modern .tenant-hits li[aria-selected=true]{background:var(--m-soft)}.theme-modern .lease-office-pick{background:var(--m-soft);border-color:var(--m-line)}
