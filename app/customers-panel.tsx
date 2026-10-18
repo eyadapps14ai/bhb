@@ -1,12 +1,12 @@
 'use client';
 import {useState} from 'react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
-import {Search,ChevronRight,FileText,Building2,Users,ScrollText,Mail,Phone,FileSpreadsheet,Plus,Pencil,Trash2,UserPlus} from 'lucide-react';
+import {Paperclip,Download,Search,ChevronRight,FileText,Building2,Users,ScrollText,Mail,Phone,FileSpreadsheet,Plus,Pencil,Trash2,UserPlus} from 'lucide-react';
 import {Sheet,SheetContent,SheetHeader,SheetTitle,SheetDescription} from '@/components/ui/sheet';
-import {paymentTotal,type Office,type Payment,type StoredCustomer} from '@/lib/records';
+import {paymentTotal,type Office,type Payment,type StoredCustomer,type Attachment} from '@/lib/records';
 import {invoiceNumber} from '@/lib/invoices';
 import {downloadXlsx} from '@/lib/xlsx-export';
-import {buildContracts,type Contract} from './contracts-panel';
+import {buildContracts,docDay,type Contract} from './contracts-panel';
 import {GroupedTable,type Column} from './board';
 import {MAnalysis,aed0,plural} from './modern-kit';
 // Customers: every tenant is a customer, made from the offices and past leases. One customer per company (by TRN when
@@ -18,9 +18,9 @@ const fmt=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'
 const day=(s:string)=>s?new Date(s.slice(0,10)+'T00:00:00Z').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}):'—';
 const norm=(s:string)=>s.toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g,' ').trim();
 export const customerKey=(o:{trn?:string;company:string})=>o.trn?'trn:'+o.trn:'name:'+norm(o.company);
-export function buildCustomers(offices:Office[],leases:any[],payments:Payment[],invoices:any[],today:string,stored:StoredCustomer[]=[]):Customer[]{
+export function buildCustomers(offices:Office[],leases:any[],payments:Payment[],invoices:any[],today:string,stored:StoredCustomer[]=[],documents:Attachment[]=[]):Customer[]{
  const map=new Map<string,Contract[]>();
- for(const c of buildContracts(offices,leases,payments,invoices,today)){if(!c.office.company)continue;const k=customerKey(c.office);map.set(k,[...(map.get(k)||[]),c])}
+ for(const c of buildContracts(offices,leases,payments,invoices,today,documents)){if(!c.office.company)continue;const k=customerKey(c.office);map.set(k,[...(map.get(k)||[]),c])}
  const tenants:Customer[]=[...map].map(([key,list])=>{const sorted=[...list].sort((a,b)=>(a.status==='Current'?0:1)-(b.status==='Current'?0:1)||b.office.start.localeCompare(a.office.start)),o=sorted[0].office,sum=(k:'value'|'received'|'invoiced'|'pending'|'balance')=>list.reduce((a,c)=>a+c[k],0),current=list.filter(c=>c.status==='Current');
   return {key,name:o.company,trn:o.trn||'',contact:o.contact,email:o.email,phone:o.phone,address:o.billingAddress||'',branch:o.branch||'BHB',contracts:sorted,current,invoices:list.flatMap(c=>c.invoices).sort((a,b)=>b.issueDate.localeCompare(a.issueDate)),payments:list.flatMap(c=>c.payments).sort((a,b)=>(b.actual||b.due).localeCompare(a.actual||a.due)),value:sum('value'),received:sum('received'),invoiced:sum('invoiced'),pending:sum('pending'),balance:sum('balance'),since:list.map(c=>c.office.start).sort()[0]||'',status:current.length?'Current' as const:'Past' as const}});
  for(const s of stored){const key=customerKey({trn:s.trn,company:s.name}),own=invoices.filter(i=>i.customerId===s.id),t=tenants.find(x=>x.key===key);
@@ -32,10 +32,10 @@ export function buildCustomers(offices:Office[],leases:any[],payments:Payment[],
 // One customer's records for Excel: leases, then invoices, then payments.
 function customerRows(c:Customer){return [['Customer',c.name],['TRN',c.trn],['Contact',c.contact],['Email',c.email],['Phone',c.phone],['Billing address',c.address],[],['Office','Status','Start','End','Contract value (AED)','Received (AED)','Still to collect (AED)'],...c.contracts.map(x=>[x.office.code,x.status,x.office.start,x.office.end,x.value,x.received,x.balance]),[],['Invoice','Issue date','Total (AED)'],...c.invoices.map(i=>[invoiceNumber(i),i.issueDate,i.totals?.total||0]),[],['Payment','Due','Cash date','Status','Amount incl. VAT and deposit (AED)'],...c.payments.map(p=>[p.reference,p.due,p.actual,p.status,paymentTotal(p)])]}
 
-export function CustomersPanel({offices,leases,payments,invoices,stored=[],today,layout,modern,money,canExport,canEdit,canInvoice,canAdd=false,onSaveCustomer,onDeleteCustomer,onCustomerInvoice,onOpenOffice,onEditLease,onInvoice,onNewLease,onOpenLease}:{onOpenLease?:(key:string)=>void;offices:Office[];leases:any[];payments:Payment[];invoices:any[];stored?:StoredCustomer[];canAdd?:boolean;onSaveCustomer?:(body:any)=>Promise<void>;onDeleteCustomer?:(id:string)=>Promise<void>;onCustomerInvoice?:(c:Customer)=>void;today:string;layout:string;modern:boolean;money:boolean;canExport:boolean;canEdit:boolean;canInvoice:boolean;onOpenOffice:(id:string)=>void;onEditLease:(o:Office)=>void;onInvoice:(o:Office)=>void;onNewLease?:()=>void}){
+export function CustomersPanel({documents=[],offices,leases,payments,invoices,stored=[],today,layout,modern,money,canExport,canEdit,canInvoice,canAdd=false,onSaveCustomer,onDeleteCustomer,onCustomerInvoice,onOpenOffice,onEditLease,onInvoice,onNewLease,onOpenLease}:{documents?:Attachment[];onOpenLease?:(key:string)=>void;offices:Office[];leases:any[];payments:Payment[];invoices:any[];stored?:StoredCustomer[];canAdd?:boolean;onSaveCustomer?:(body:any)=>Promise<void>;onDeleteCustomer?:(id:string)=>Promise<void>;onCustomerInvoice?:(c:Customer)=>void;today:string;layout:string;modern:boolean;money:boolean;canExport:boolean;canEdit:boolean;canInvoice:boolean;onOpenOffice:(id:string)=>void;onEditLease:(o:Office)=>void;onInvoice:(o:Office)=>void;onNewLease?:()=>void}){
  const [show,setShow]=useState<'Current'|'Past'|'Other'|'All'>('All'),[query,setQuery]=useState(''),[open,setOpen]=useState(''),[draft,setDraft]=useState<any>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const SHOW={Current:'Current',Past:'Past',Other:'Not tenants',All:'All'};
- const all=buildCustomers(offices,leases,payments,invoices,today,stored),q=query.trim().toLowerCase();
+ const all=buildCustomers(offices,leases,payments,invoices,today,stored,documents),q=query.trim().toLowerCase();
  const shown=all.filter(c=>(show==='All'||c.status===show)&&(!q||[c.name,c.trn,c.contact,c.email,c.phone,...c.contracts.map(x=>x.office.code)].join(' ').toLowerCase().includes(q)));
  const sum=(l:Customer[],k:'value'|'received'|'balance'|'invoiced')=>l.reduce((a,c)=>a+c[k],0),c=all.find(x=>x.key===open);
  const offs=(c:Customer)=>[...new Set(c.contracts.filter(x=>x.status==='Current').map(x=>x.office.code))];
@@ -77,6 +77,7 @@ export function CustomersPanel({offices,leases,payments,invoices,stored=[],today
    {c.notes&&<p className="notes" style={{whiteSpace:'pre-wrap'}}>{c.notes}</p>}
    {c.contracts.some(x=>x.status!=='Current')&&<details className="cu-past"><summary>Past leases <span className="count">{c.contracts.filter(x=>x.status!=='Current').length}</span></summary><div className="pay-list">{c.contracts.filter(x=>x.status!=='Current').map(x=><div key={x.key} className="pay-row"><div className="pay-main"><strong>{x.office.code}</strong><small>{day(x.office.start)} – {day(x.office.end)} · {x.months} months</small></div><div className="pay-side"><span className={'badge '+(x.status==='Cancelled'?'danger':'neutral')}>{x.status}</span>{onOpenLease&&<button type="button" className="text-button" onClick={()=>{setOpen('');onOpenLease(x.key)}}>Open lease</button>}</div></div>)}</div></details>}
    {money&&c.invoices.length>0&&<><h3 className="section-label">Invoices <span className="count">{c.invoices.length}</span></h3><div className="doc-list">{c.invoices.slice(0,10).map(i=><a key={i.id} href={'/invoice/'+i.id} target="_blank" rel="noreferrer"><FileText size={20}/><div><strong>{invoiceNumber(i)}</strong><small>{day(i.issueDate)} · {i.description}</small></div><span>{fmt(i.totals?.total||0)}</span></a>)}</div></>}
+   {(()=>{const docs=c.contracts.flatMap(x=>x.documents.map(d=>({d,code:x.office.code}))).sort((a,b)=>b.d.created.localeCompare(a.d.created));return docs.length>0&&<><h3 className="section-label">Documents <span className="count">{docs.length}</span></h3><div className="doc-list">{docs.slice(0,20).map(({d,code})=><a key={d.id} href={'/api/documents?id='+encodeURIComponent(d.id)} target="_blank" rel="noreferrer"><Paperclip size={20}/><div><strong>{d.name}</strong><small>{d.category} · {code} · {day(docDay(d.created))}</small></div><Download size={17}/></a>)}</div></>})()}
   </>}</SheetContent></Sheet>
  </>;
 }

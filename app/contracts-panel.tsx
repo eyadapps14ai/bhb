@@ -2,27 +2,33 @@
 import {useState} from 'react';
 import {ScrollText,Search,ChevronRight,UserPlus,ArrowRight,X} from 'lucide-react';
 import {contractValue} from '@/lib/access';
-import {type Office,type Payment} from '@/lib/records';
+import {type Office,type Payment,type Attachment} from '@/lib/records';
 import type {SalesStaff} from './admin-panels';
 import {GroupedTable,type Column} from './board';
 import {LeasePage} from './lease-page';
 import {MAnalysis,aed0} from './modern-kit';
 const fmt0=(n:number)=>new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:0}).format(n),n0=(n:number)=>new Intl.NumberFormat('en-AE',{maximumFractionDigits:0}).format(Math.round(n));
 const showDate=(s:string)=>s?new Date(s+'T00:00:00Z').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}):'—';
-export type Contract={key:string;office:Office;officeId:string;leaseId:string|null;status:'Current'|'Ended'|'Cancelled';cancelled:string;months:number;value:number;payments:Payment[];invoices:any[];received:number;pending:number;invoiced:number;balance:number};
+export type Contract={key:string;office:Office;officeId:string;leaseId:string|null;status:'Current'|'Ended'|'Cancelled';cancelled:string;months:number;value:number;payments:Payment[];invoices:any[];received:number;pending:number;invoiced:number;balance:number;documents:Attachment[]};
 
 // One contract per current lease (an office with a tenant and start date) and per cancelled lease (its saved snapshot).
 // Payments belong to a cancelled lease when it archived them, otherwise to the office's current lease; only rent counts
 // as cash against the lease (PRO services and other income on the office do not). Invoices follow their payment
 // (skipped when that payment is not rent), or else the office lease whose dates cover the issue date.
-export function buildContracts(offices:Office[],leases:any[],payments:Payment[],invoices:any[],today:string):Contract[]{
+// The day a document was uploaded, in Dubai (a file uploaded at 01:00 in Dubai belongs to that day, not the UTC one).
+export const docDay=(iso:string)=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dubai'}).format(new Date(iso));
+export function buildContracts(offices:Office[],leases:any[],payments:Payment[],invoices:any[],today:string,documents:Attachment[]=[]):Contract[]{
  const archived=new Set(leases.flatMap(l=>l.paymentIds||[])),isRent=(p:Payment)=>p.direction==='Income'&&(p.incomeType||'Rent')==='Rent';
  const base=[...offices.filter(o=>o.company&&o.start&&!o.leaseClosed).map(o=>({key:o.id,office:o,officeId:o.id,leaseId:null,cancelled:'',pays:payments.filter(p=>p.officeId===o.id&&!archived.has(p.id))})),
   ...leases.filter(l=>l.office).map(l=>({key:l.id,office:l.office as Office,officeId:l.officeId||l.office.id,leaseId:l.id as string,cancelled:l.date||'',pays:payments.filter(p=>(l.paymentIds||[]).includes(p.id))}))];
  const owner=(inv:any)=>base.find(c=>inv.paymentId&&c.pays.some(p=>p.id===inv.paymentId))||base.find(c=>c.officeId===inv.officeId&&c.leaseId&&inv.issueDate>=c.office.start&&inv.issueDate<=(c.cancelled||c.office.end||'9999'))||base.find(c=>c.officeId===inv.officeId&&!c.leaseId);
+ // Documents (Admin #863): one attached to a payment goes to the lease of that payment; any other one to the lease the
+ // office had when it was uploaded (after the lease before it was cancelled, up to this one's cancellation).
+ const docsOf=(c:typeof base[number])=>{const mine=new Set(c.pays.map(p=>p.id)),owned=new Set(base.flatMap(x=>x.pays.map(p=>p.id))),from=base.filter(x=>x.officeId===c.officeId&&x.leaseId&&x.cancelled&&(!c.leaseId||x.cancelled<c.cancelled)).map(x=>x.cancelled).sort().pop()||'',to=c.leaseId?c.cancelled||'9999':'9999';
+  return documents.filter(d=>d.officeId===c.officeId&&(d.paymentId&&owned.has(d.paymentId)?mine.has(d.paymentId):docDay(d.created)>from&&docDay(d.created)<=to)).sort((a,b)=>b.created.localeCompare(a.created))};
  const byContract=new Map<string,any[]>();for(const inv of invoices){const paid=inv.paymentId&&payments.find(p=>p.id===inv.paymentId);if(paid&&!isRent(paid))continue;const c=owner(inv);if(c)byContract.set(c.key,[...(byContract.get(c.key)||[]),inv])}
  return base.map(c=>{const income=c.pays.filter(isRent),{months,value}=contractValue(c.office),received=income.filter(p=>p.status==='Cleared').reduce((a,p)=>a+p.amount,0),pending=income.filter(p=>p.status==='Pending').reduce((a,p)=>a+p.amount,0),inv=byContract.get(c.key)||[];
-  return {key:c.key,office:c.office,officeId:c.officeId,leaseId:c.leaseId,cancelled:c.cancelled,status:c.leaseId?'Cancelled' as const:c.office.end&&c.office.end<today?'Ended' as const:'Current' as const,months,value,payments:c.pays.sort((a,b)=>(a.due||'').localeCompare(b.due||'')),invoices:inv.sort((a,b)=>b.issueDate.localeCompare(a.issueDate)),received,pending,invoiced:inv.reduce((a,i)=>a+(i.totals?.net||0)-(i.credited?.net||0),0),balance:Math.max(0,Math.round((value-received)*100)/100)}})
+  return {key:c.key,office:c.office,officeId:c.officeId,leaseId:c.leaseId,cancelled:c.cancelled,status:c.leaseId?'Cancelled' as const:c.office.end&&c.office.end<today?'Ended' as const:'Current' as const,months,value,payments:c.pays.sort((a,b)=>(a.due||'').localeCompare(b.due||'')),invoices:inv.sort((a,b)=>b.issueDate.localeCompare(a.issueDate)),received,pending,invoiced:inv.reduce((a,i)=>a+(i.totals?.net||0)-(i.credited?.net||0),0),balance:Math.max(0,Math.round((value-received)*100)/100),documents:docsOf(c)}})
   .sort((a,b)=>b.office.start.localeCompare(a.office.start));
 }
 
@@ -31,11 +37,11 @@ export function buildContracts(offices:Office[],leases:any[],payments:Payment[],
 type Focus=''|'noSeller'|'uninvoiced'|'ending';
 const focusLabel:Record<Exclude<Focus,''>,string>={noSeller:'Leases without a seller',uninvoiced:'Leases not invoiced yet',ending:'Ending in the next 60 days'};
 const initials=(name:string)=>name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('');
-export function ContractsPanel({offices,leases,payments,invoices,salesStaff,today,canInvoice,canPay,onInvoice,onPayment,onOpenOffice,onEditLease,onReceive,onReplace,openKey,onOpenKey,layout='classic',modern=false}:{layout?:string;modern?:boolean;openKey?:string;onOpenKey?:(k:string)=>void;onReceive?:(p:Payment,date:string)=>Promise<void>;onReplace?:(p:Payment)=>void;offices:Office[];leases:any[];payments:Payment[];invoices:any[];salesStaff:SalesStaff[];today:string;canInvoice:boolean;canPay:boolean;onInvoice:(o:Office,p?:Payment)=>void;onPayment:(o:Office)=>void;onOpenOffice:(id:string)=>void;onEditLease?:(o:Office)=>void}){
+export function ContractsPanel({documents=[],onUpload,offices,leases,payments,invoices,salesStaff,today,canInvoice,canPay,onInvoice,onPayment,onOpenOffice,onEditLease,onReceive,onReplace,openKey,onOpenKey,layout='classic',modern=false}:{documents?:Attachment[];onUpload?:(o:Office)=>void;layout?:string;modern?:boolean;openKey?:string;onOpenKey?:(k:string)=>void;onReceive?:(p:Payment,date:string)=>Promise<void>;onReplace?:(p:Payment)=>void;offices:Office[];leases:any[];payments:Payment[];invoices:any[];salesStaff:SalesStaff[];today:string;canInvoice:boolean;canPay:boolean;onInvoice:(o:Office,p?:Payment)=>void;onPayment:(o:Office)=>void;onOpenOffice:(id:string)=>void;onEditLease?:(o:Office)=>void}){
  // Which lease is open on its own page; the main page can open one (after saving a new lease) through openKey.
  const [filter,setFilter]=useState<'Current'|'Ended'|'Cancelled'|'All'>('Current'),[query,setQuery]=useState(''),[openLocal,setOpenLocal]=useState(''),[focus,setFocus]=useState<Focus>('');
  const open=openKey??openLocal,setOpen=onOpenKey??setOpenLocal;
- const all=buildContracts(offices,leases,payments,invoices,today),seller=(id:string)=>salesStaff.find(s=>s.id===id)?.name||'';
+ const all=buildContracts(offices,leases,payments,invoices,today,documents),seller=(id:string)=>salesStaff.find(s=>s.id===id)?.name||'';
  const soon=new Date(Date.parse(today+'T00:00:00Z')+60*864e5).toISOString().slice(0,10);
  const focusTest:Record<Exclude<Focus,''>,(x:Contract)=>boolean>={noSeller:x=>x.status==='Current'&&!x.office.salesEmployeeId,uninvoiced:x=>x.status==='Current'&&!x.invoices.length,ending:x=>x.status==='Current'&&!!x.office.end&&x.office.end<=soon};
  const shown=all.filter(c=>(focus?focusTest[focus](c):filter==='All'||c.status===filter)&&[c.office.code,c.office.company,c.office.leaseReference,seller(c.office.salesEmployeeId)].join(' ').toLowerCase().includes(query.toLowerCase()));
@@ -78,7 +84,7 @@ export function ContractsPanel({offices,leases,payments,invoices,salesStaff,toda
     <span className="lc-money"><span><b>{fmt0(x.received)}</b> <small>of {fmt0(x.value)}</small></span><span className={'lc-bar'+(m>=100?' done':'')} role="img" aria-label={Math.round(m)+'% received'}><span style={{width:m+'%'}}/></span><small>{x.balance>0?fmt0(x.balance)+' to collect':'Fully collected'}{x.invoiced>0?' · invoiced '+fmt0(x.invoiced):' · not invoiced'}</small></span>
     <ChevronRight size={18} className="lc-chev"/></div>})}</div>
   :<div className="empty compact"><ScrollText size={34}/><h3>No contracts here</h3><p>{query||focus?'Try another search or filter.':'Use New lease to start a contract.'}</p></div>}</section>;
- if(c)return <LeasePage c={c} seller={seller(c.office.salesEmployeeId)} today={today} canInvoice={canInvoice} canPay={canPay} onBack={()=>setOpen('')} onInvoice={onInvoice} onPayment={onPayment} onEditLease={onEditLease} onOpenOffice={onOpenOffice} onReceive={onReceive} onReplace={onReplace}/>;
+ if(c)return <LeasePage c={c} seller={seller(c.office.salesEmployeeId)} today={today} canInvoice={canInvoice} canPay={canPay} onBack={()=>setOpen('')} onInvoice={onInvoice} onPayment={onPayment} onEditLease={onEditLease} onOpenOffice={onOpenOffice} onReceive={onReceive} onReplace={onReplace} onUpload={onUpload}/>;
  return <>
   {layout==='board'?modern?analysis:grid:<>{summary}{list}</>}
 

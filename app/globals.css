@@ -698,3 +698,8 @@ button.dash-kpi:hover{border-color:#c9a65f;box-shadow:0 2px 10px #b5852f1f}
 .reset-steps li>span:first-child{display:flex;flex-direction:column;gap:2px;flex:1 1 260px}.reset-steps small{color:#6b665a}
 .reset-done{display:inline-flex;align-items:center;gap:6px;color:#2f7a4f;font-weight:600}.reset-confirm{display:flex;flex-wrap:wrap;gap:8px}.reset-confirm input{height:40px;width:140px;padding:0 12px;border:1px solid var(--border);border-radius:10px;font:inherit;letter-spacing:.08em}
 .danger-button{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:10px;border:1px solid #b33a3a;background:#b33a3a;color:#fff;font-weight:600;cursor:pointer}.danger-button:disabled{opacity:.45;cursor:not-allowed}
+/* Enquiries: the whole page is the inbox in both themes (Admin #865); Outlook-style date groups fold away. */
+.inbox.full{height:max(540px,calc(100dvh - 178px))}.mail-group{display:flex;align-items:center;gap:6px;width:100%;border:0;border-bottom:1px solid #f1ece0;font-family:inherit;text-align:left;cursor:pointer}.mail-group:hover{background:#f6f1e4}.mail-group svg{transition:transform .15s}.mail-group svg.folded{transform:rotate(-90deg)}.mail-group-count{margin-left:auto;font-weight:600;letter-spacing:0;text-transform:none;color:#8a8370}
+.mail-list-title{flex-wrap:wrap;gap:4px 10px}.mail-list-title>span{margin-right:auto}.mail-sort{display:inline-flex;align-items:center;gap:5px;border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:#765410;cursor:pointer;padding:2px 0}.mail-sort:hover{text-decoration:underline}
+@media(max-width:720px){.inbox.full{height:auto}}
+.theme-modern .inbox.full{height:max(540px,calc(100dvh - 138px))}
