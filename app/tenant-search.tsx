@@ -3,14 +3,15 @@ import {useState} from 'react';
 // Company / tenant field with a smart search: typing shows existing tenants and customers that match (name, TRN,
 // contact); picking one fills their contact, TRN, billing address and licence. Typing a new name is fine too.
 export type TenantPick={company:string;contact:string;email:string;phone:string;trn:string;billingAddress:string;licenseNumber:string;licenseExpiry:string;from:string};
-export function tenantList(offices:any[],leases:any[],customers:any[]):TenantPick[]{
+type Party={company?:string;name?:string;contact?:string;email?:string;phone?:string;trn?:string;billingAddress?:string;licenseNumber?:string;licenseExpiry?:string;code?:string;start?:string};
+export function tenantList(offices:Party[],leases:{office?:Party}[],customers:Party[]):TenantPick[]{
  const out=new Map<string,TenantPick&{at:string}>(),key=(n:string,t:string)=>t?'trn:'+t:'name:'+n.trim().toLowerCase();
- const add=(o:any,from:string,at:string)=>{const company=String(o.company||o.name||'').trim();if(!company)return;const k=key(company,o.trn||''),was=out.get(k);if(was&&was.at>=at)return;
+ const add=(o:Party,from:string,at:string)=>{const company=String(o.company||o.name||'').trim();if(!company)return;const k=key(company,o.trn||''),was=out.get(k);if(was&&was.at>=at)return;
   out.set(k,{company,contact:o.contact||'',email:o.email||'',phone:o.phone||'',trn:o.trn||'',billingAddress:o.billingAddress||'',licenseNumber:o.licenseNumber||'',licenseExpiry:o.licenseExpiry||'',from,at})};
  for(const c of customers)add(c,'Customer','0');
  for(const l of leases)if(l.office)add(l.office,'Past tenant · '+(l.office.code||''),l.office.start||'1');
  for(const o of offices)if(o.company)add(o,'Tenant · '+o.code,o.start||'2');
- return [...out.values()].sort((a,b)=>a.company.localeCompare(b.company)).map(({at:_at,...t})=>t);
+ return [...out.values()].sort((a,b)=>a.company.localeCompare(b.company)).map(t=>{const {at,...rest}=t;void at;return rest});
 }
 export function TenantSearch({value,onChange,onPick,list,required}:{value:string;onChange:(v:string)=>void;onPick:(t:TenantPick)=>void;list:TenantPick[];required?:boolean}){
  const [open,setOpen]=useState(false),[active,setActive]=useState(0);
