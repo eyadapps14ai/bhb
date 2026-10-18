@@ -22,6 +22,7 @@ catch(e){const r=failure(e);const b=await r.json() as {error:string};return Resp
 export async function DELETE(req:Request){try{const{db,owner,user}=await context(req,'employees','edit');allow(has(user,'delete'));const body=z.object({id:z.string().min(1),loginOff:z.boolean().default(false)}).parse(await req.json());const record=await db.prepare('SELECT data FROM employees WHERE id=? AND owner=?').bind(body.id,owner).first<{data:string}>();if(!record)throw new Error('Employee not found.');checkBranch(user,JSON.parse(record.data).branch);
  const login=await db.prepare("SELECT id,email,data FROM users WHERE data::jsonb->>'employeeId'=?").bind(body.id).first<{id:string;email:string;data:string}>();
  let plan=null;if(login&&body.loginOff){allow(can(user,'users','edit'));const ud=JSON.parse(login.data);plan=await checkLogin(db,user,{...ud,id:login.id,email:login.email,employeeId:'',active:false,password:undefined})}
+ // The login changes first (if that fails, nothing is deleted), written from JS so the stored JSON keeps its format.
+ if(plan)await writeLogin(db,user,plan);else if(login)await db.prepare('UPDATE users SET data=? WHERE id=?').bind(JSON.stringify({...JSON.parse(login.data),employeeId:''}),login.id).run();
  await db.prepare('DELETE FROM employees WHERE id=? AND owner=?').bind(body.id,owner).run();
- if(plan)await writeLogin(db,user,plan);else if(login)await db.prepare("UPDATE users SET data=jsonb_set(data::jsonb,'{employeeId}','\"\"')::text WHERE id=?").bind(login.id).run();
  return Response.json({id:body.id,login:login?(plan?'off':'unlinked'):null});}catch(e){return failure(e);}}

@@ -165,6 +165,7 @@ CREATE TABLE IF NOT EXISTS migrations (
 UPDATE roles SET data = jsonb_set(data::jsonb, '{pages,sales}', '"none"')::text WHERE id = 'sales' AND NOT EXISTS (SELECT 1 FROM migrations WHERE id = 'sales-role-hides-commission');
 INSERT INTO migrations (id, at) VALUES ('sales-role-hides-commission', now()::text) ON CONFLICT (id) DO NOTHING;
 -- Logins that still point to a deleted employee are unlinked (deleting an employee now unlinks their login itself).
-UPDATE users SET data = jsonb_set(data::jsonb, '{employeeId}', '""')::text WHERE COALESCE(data::jsonb ->> 'employeeId', '') <> '' AND NOT EXISTS (SELECT 1 FROM employees e WHERE e.id = users.data::jsonb ->> 'employeeId');
+-- It replaces only that value in the stored text, so the row keeps its compact JSON format.
+UPDATE users SET data = replace(data, '"employeeId":"' || (data::jsonb ->> 'employeeId') || '"', '"employeeId":""') WHERE COALESCE(data::jsonb ->> 'employeeId', '') <> '' AND position('"employeeId":"' || (data::jsonb ->> 'employeeId') || '"' in data) > 0 AND NOT EXISTS (SELECT 1 FROM employees e WHERE e.id = users.data::jsonb ->> 'employeeId');
 COMMIT;
 `;

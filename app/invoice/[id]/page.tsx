@@ -1,5 +1,5 @@
 import {context,checkOffice,checkBranch,DENIED} from '@/lib/server-records';
-import {invoiceNumber,aedInWords,creditNumber,round,type InvoiceLine} from '@/lib/invoices';
+import {invoiceNumber,aedInWords,creditNumber,round,vatOf,type InvoiceLine} from '@/lib/invoices';
 import {can,has} from '@/lib/access';
 import {today} from '@/lib/records';
 import CreditNotes,{type NoteLine} from './credit';
@@ -35,7 +35,7 @@ return <main className="invoice-document"><PrintInvoice/>
   <section><h2>Bill to</h2><b>{d.buyerName}</b><p className="inv-pre">{d.buyerAddress}</p><p>{d.buyerTrn?'TRN '+d.buyerTrn:'TRN: not VAT registered'}</p>{clientContact&&<p>{clientContact}</p>}</section></div>
  {lease&&<p className="inv-lease">{lease}</p>}
  <table className="invoice-table"><thead><tr>{[['Description',''],['Qty','num'],['Unit price','num'],['Discount','num'],['Net amount','num'],['VAT rate','num'],['VAT','num'],['Total','num']].map(([h,c])=><th key={h} className={c}>{h}</th>)}</tr></thead>
-  <tbody>{lines.map((l,i)=>{const net=round(round(l.quantity*l.unitPrice)-(l.discount||0)),out=l.kind==='disbursement',vat=out?0:round(net*d.vatRate/100);return <tr key={i} className={out?'inv-outside':undefined}><td>{l.description}{out&&<small>Paid on your behalf at cost, outside the scope of VAT</small>}</td><td className="num">{l.quantity}</td><td className="num">{fmt(l.unitPrice)}</td><td className="num">{fmt(l.discount||0)}</td><td className="num">{fmt(net)}</td><td className="num">{out?'Outside scope':d.vatRate+'%'}</td><td className="num">{out?'—':fmt(vat)}</td><td className="num">{fmt(round(net+vat))}</td></tr>})}</tbody></table>
+  <tbody>{lines.map((l,i)=>{const net=round(round(l.quantity*l.unitPrice)-(l.discount||0)),out=l.kind==='disbursement',vat=out?0:vatOf(net,Number(d.vatRate)||0);return <tr key={i} className={out?'inv-outside':undefined}><td>{l.description}{out&&<small>Paid on your behalf at cost, outside the scope of VAT</small>}</td><td className="num">{l.quantity}</td><td className="num">{fmt(l.unitPrice)}</td><td className="num">{fmt(l.discount||0)}</td><td className="num">{fmt(net)}</td><td className="num">{out?'Outside scope':d.vatRate+'%'}</td><td className="num">{out?'—':fmt(vat)}</td><td className="num">{fmt(round(net+vat))}</td></tr>})}</tbody></table>
  <div className="inv-bottom"><div className="inv-info">
    {bank&&<section><h2>Payment details</h2><dl>{([['Bank',bank.bankName],['Account name',bank.accountName||is.name],['IBAN',String(bank.iban||'').replace(/(.{4})/g,'$1 ').trim()]] as [string,string][]).filter(([,v])=>v).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></section>}
    {pay&&<p>Payment: {[METHOD[pay.method]||pay.method,payRef].filter(Boolean).join(' ')}{pay.bankName?', '+pay.bankName:''}{pay.due?', due '+day(pay.due):''}.</p>}

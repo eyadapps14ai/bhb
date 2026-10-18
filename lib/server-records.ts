@@ -7,7 +7,9 @@ import {ZodError} from 'zod';
 export const SHARED_OWNER='bhb';
 export const DENIED='Your role does not allow this.';
 // Every route names the page it belongs to and whether it reads or changes it; branches are checked per record.
-export async function context(request:Request,page?:Page,level:'view'|'edit'='view'){const user=await getUser();if(!user)throw new Error('Sign in to access your records.');if(page&&!can(user,page,level))throw new Error(DENIED);if(request.method!=='GET'){const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)throw new Error('Request origin does not match.');}return{db:await openDb(),owner:SHARED_OWNER,bucket:getBucket(),user};}
+export async function context(request:Request,page?:Page,level:'view'|'edit'='view'){const user=await getUser();if(!user)throw new Error('Sign in to access your records.');if(page&&!can(user,page,level))throw new Error(DENIED);if(request.method!=='GET'){const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)throw new Error('Request origin does not match.');const expected=request.headers.get('x-bhb-user');if(expected&&expected!==user.userId)throw new Error(SWITCHED);}return{db:await openDb(),owner:SHARED_OWNER,bucket:getBucket(),user};}
+// The dashboard sends the user it was loaded for; if this browser has since signed in as someone else, writes stop.
+export const SWITCHED='This browser is now signed in as someone else. Reload the page to continue as them.';
 export function allow(ok:boolean){if(!ok)throw new Error(DENIED);}
 export function checkBranch(user:Access,branch:string|null|undefined){allow(user.branches.includes(branch||'BHB'));}
 // Connection errors name internal hosts, so callers only ever see a generic message.
