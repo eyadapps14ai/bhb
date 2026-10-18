@@ -5,8 +5,8 @@ import {cashMetrics,type Office,type Payment} from '@/lib/records';
 import {contractValue} from '@/lib/access';
 import type {Deal,SalesStaff} from './admin-panels';
 // Dashboard (the only dashboard; it took over the Hub and My dashboard): the month at a glance (cash flow, leases
-// closed, deals closed, occupancy) and each salesperson's results, then the person's own part (middle: to-dos,
-// renewals, requests, contracts), then every office on one floor grid (vacant white, occupied grey, reserved amber,
+// closed, deals closed, occupancy) and each salesperson's results, then the person's own part (middle: renewals and
+// contracts; to-dos and requests are on the Dashboard's second tab, #832), then every office on one floor grid (vacant white, occupied grey, reserved amber,
 // inactive hatched). Clicking an office opens its quick actions. Each part shows only what the person's role allows.
 type State='occupied'|'reserved'|'vacant'|'inactive';
 const STATES:[State,string][]=[['occupied','Occupied'],['reserved','Reserved'],['vacant','Vacant'],['inactive','Inactive']];
