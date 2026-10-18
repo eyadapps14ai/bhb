@@ -8,6 +8,9 @@ const isoDate=z.string().regex(/^\d{4}-\d{2}-\d{2}$/,'Use a valid date');
 const money=z.coerce.number().finite().min(0).max(1e11);
 const scheduleSchema=z.object({on:z.boolean(),method:z.enum(['Check','Transfer','Cash']).default('Check'),rows:z.array(z.object({due:isoDate,amount:money,vat:money.default(0),deposit:money.default(0)})).max(24)}).nullable().optional();
 export async function POST(req:Request){try{const{db,owner,user}=await context(req,'offices','edit');const body:any=await req.json();const data=officeSchema.parse(body);const plan=scheduleSchema.parse(body.schedule??null);checkBranch(user,data.branch);const id=data.id||crypto.randomUUID();let before:{company?:string;start?:string}|null=null;if(data.id){await checkOffice(db,owner,user,id);const row:any=await db.prepare('SELECT data FROM offices WHERE id=? AND owner=?').bind(id,owner).first();const old=JSON.parse(row.data);before=old;if(old.company&&data.company!==old.company)throw new Error('Cancel the existing lease and confirm vacancy before replacing the tenant.');if(old.leaseClosed&&old.company)throw new Error('Confirm vacancy in Lease history before changing this office.');data.leaseClosed=!!old.leaseClosed&&!!old.company;}
+ // A tenant with lease dates means the office is let. The map and the connector read Status while Leases reads tenant
+ // and start, so a lease saved with Status left on Available showed a let office as Vacant (#679).
+ const madeActive=!!(data.company&&data.start&&data.end&&!data.leaseClosed&&data.status==='Available');if(madeActive)data.status='Active';const activeNote='Status set to Active: this office has a tenant and lease dates. To free it, cancel the lease in Leases.';
  // Leases on one office must not overlap: a new tenant, or a new start date, must begin after the last tenant's
  // move-out in Lease history. Saves that keep the tenant and start date as they are (other edits) are not checked.
  if(data.company&&data.start&&(!before?.company||before.start!==data.start)){const last=await db.prepare("SELECT MAX(data::jsonb->>'moveOut') AS d FROM leases WHERE owner=? AND office_id=?").bind(owner,id).first<{d:string|null}>();
@@ -32,5 +35,5 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
  }
  if(created)statements.unshift(db.prepare('SELECT pg_advisory_xact_lock(hashtext(?))').bind('schedule:'+id));
  await db.batch(statements);
- if(created){const r:any=await db.prepare("SELECT COUNT(*) AS n FROM payments WHERE owner=? AND office_id=? AND data::jsonb->>'scheduleBatch'=?").bind(owner,id,batchId).first();const saved=Number(r?.n)||0;if(!saved)return Response.json({id,payments:0,note:'Saved. No new payments were added: this lease already has a payment schedule for these dates.'});created=saved}
- return Response.json({id,payments:created});}catch(e){return failure(e);}}
+ if(created){const r:any=await db.prepare("SELECT COUNT(*) AS n FROM payments WHERE owner=? AND office_id=? AND data::jsonb->>'scheduleBatch'=?").bind(owner,id,batchId).first();const saved=Number(r?.n)||0;if(!saved)return Response.json({id,payments:0,note:'Saved. No new payments were added: this lease already has a payment schedule for these dates.'+(madeActive?' '+activeNote:'')});created=saved}
+ return Response.json({id,payments:created,...(madeActive?{note:activeNote}:{})});}catch(e){return failure(e);}}
