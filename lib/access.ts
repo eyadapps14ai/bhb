@@ -1,6 +1,6 @@
 // Roles and permissions, shared by the server (enforcement) and the screens (what to show).
 export const BRANCHES=['BHB','111'] as const;
-export const pages=[['offices','Office portfolio'],['contracts','Lease contracts'],['customers','Customers'],['enquiries','Enquiries'],['cash','Cash flow'],['documents','Documents'],['workbook','Accounts'],['employees','Employees'],['whatsapp','WhatsApp'],['sales','Sales commission'],['users','Users & roles']] as const;
+export const pages=[['offices','Office portfolio'],['contracts','Lease contracts'],['customers','Customers'],['enquiries','Enquiries'],['cash','Cash and expenses'],['documents','Documents'],['workbook','Accounts'],['employees','Employees'],['whatsapp','WhatsApp'],['sales','Sales commission'],['users','Users & roles']] as const;
 export const components=[['summary','Summary cards and branch table'],['export','Excel export and import'],['invoices','Create invoices'],['delete','Delete records'],['allCommissions','See every salesperson’s commission']] as const;
 export type Page=typeof pages[number][0];
 export type Component=typeof components[number][0];

@@ -44,6 +44,20 @@ export const receivedForInvoice=(p:{direction:string;amount:number;officeId:stri
 // Why a received payment is not invoiced automatically ('' when it can be). The server and the Accounts count share it.
 // vat: its VAT does not match the lease rate. hand: the lease has an invoice made by hand in its current term, so the
 // rest of that lease is invoiced by hand too (no guessing which payments a hand-made invoice covers).
+// Why a replacement for a bounced cheque (replacesPaymentId) is not invoiced automatically ('' when it can be): the
+// server and the Accounts count share it, so the count shows only what will be issued. inv is the invoice still on the
+// replaced payment, movedTo the one already moved off it, creditedNet what credit notes took off inv.
+type ReplacedInvoice={buyerName?:string;buyerTrn?:string;totals?:{net?:number;vat?:number}};
+export function replacementBlock(p:{amount:number;vatAmount?:number},office:{company?:string;trn?:string;start?:string;end?:string},orig:{status:string;due?:string}|null|undefined,inv:ReplacedInvoice|undefined,movedTo:{payment?:{reference?:string}}|undefined,creditedNet:number):string{
+ if(!orig)return 'the replaced payment was not found on this office';
+ if(orig.status!=='Bounced')return inv?'the replaced payment was cancelled, not bounced, and its invoice needs a credit note':'the replaced payment is not bounced';
+ if(!(orig.due&&office.start&&office.end&&orig.due>=office.start&&orig.due<=office.end))return 'the replaced payment is from another lease term';
+ if(!inv)return movedTo?'the bounced payment\'s invoice already moved to '+(movedTo.payment?.reference||'another payment'):'';
+ if(inv.buyerName!==office.company||(inv.buyerTrn||'')!==(office.trn||''))return 'its invoice is for another tenant';
+ if(Math.abs((inv.totals?.net||0)-p.amount)>=0.01||Math.abs((inv.totals?.vat||0)-(p.vatAmount||0))>=0.01)return 'the amount or VAT differs from its invoice';
+ // A credited invoice is not moved: credited in full, the replacement gets its own invoice; credited in part, by hand.
+ return creditedNet>0&&creditedNet<(inv.totals?.net||0)-0.004?'the bounced payment\'s invoice is partly credited':'';
+}
 export function autoInvoiceBlock(p:{officeId:string|null;amount:number;vatAmount?:number;incomeType?:string},office:{vat?:number;start?:string;end?:string}|undefined,invoices:{paymentId?:string|null;officeId?:string;supplyDate?:string;issueDate?:string;lines?:{kind?:string}[];totals?:{outside?:number}}[]):''|'vat'|'hand'|'pro'{
  // pro: PRO service income is invoiced by hand, so government fees can go on their own line outside VAT.
  if(p.incomeType==='PRO service')return 'pro';

@@ -683,3 +683,5 @@ button.dash-kpi:hover{border-color:#c9a65f;box-shadow:0 2px 10px #b5852f1f}
 .tenant-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;padding:6px;cursor:pointer;color:#6b665a;display:grid;place-items:center}
 .office-lease-card{flex-wrap:wrap}.office-lease-actions{display:flex;gap:10px;align-items:center;flex-direction:row!important;margin-left:auto}
 .office-vacant{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:6px}.office-vacant .notes{margin:0;flex:1 1 220px}
+.tenant-hint-row{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}.tenant-new{white-space:nowrap}
+.current-lease{margin-bottom:18px}.current-lease h3{margin-top:0}

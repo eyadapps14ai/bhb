@@ -1,5 +1,4 @@
-import {issuerSchema,invoiceSchema,invoiceTotals,autoInvoiceBlock,creditNoteSchema,invoiceNumber,round} from './invoices';
-import {inLeaseTerm} from './records';
+import {issuerSchema,invoiceSchema,invoiceTotals,autoInvoiceBlock,replacementBlock,creditNoteSchema,invoiceNumber,round} from './invoices';
 import type {Database} from '@/db';
 import {today} from './records';
 // Tax invoices: the one place that checks and saves an invoice (Accounts > Create invoice and the automatic ones).
@@ -57,12 +56,11 @@ export async function autoInvoice(db:any,owner:string,payment:any,office:any,on:
  // bounced cheque's invoice already moved to another replacement (then it is skipped, to avoid naming it twice).
  if(payment.replacesPaymentId){const orig:any=await db.prepare('SELECT data FROM payments WHERE id=? AND owner=? AND office_id=?').bind(payment.replacesPaymentId,owner,payment.officeId).first(),o=orig?JSON.parse(orig.data):null,inv=rows.find(i=>i.paymentId===payment.replacesPaymentId);
   const movedTo=rows.find(i=>(i.replacedPayments||[]).some((r:{paymentId?:string})=>r.paymentId===payment.replacesPaymentId));
-  const why=!o?'the replaced payment was not found on this office':o.status!=='Bounced'?(inv?'the replaced payment was cancelled, not bounced, and its invoice needs a credit note':'the replaced payment is not bounced'):!inLeaseTerm(office,o.due)?'the replaced payment is from another lease term':!inv?(movedTo?'the bounced payment\'s invoice already moved to '+(movedTo.payment?.reference||'another payment'):''):inv.buyerName!==office.company||(inv.buyerTrn||'')!==(office.trn||'')?'its invoice is for another tenant':Math.abs((inv.totals?.net||0)-payment.amount)>=0.01||Math.abs((inv.totals?.vat||0)-(payment.vatAmount||0))>=0.01?'the amount or VAT differs from its invoice':'';
+  const cr=inv?(await db.prepare("SELECT COALESCE(SUM((data::jsonb->'credit'->>'net')::numeric),0) AS net FROM credit_notes WHERE owner=? AND invoice_id=?").bind(owner,inv.id).first()) as {net:string}|null:null,creditedNet=Number(cr?.net||0);
+  const why=replacementBlock(payment,office,o,inv,movedTo,creditedNet);
   if(why)return {skipped:payment.reference+': not invoiced automatically because '+why+'; issue it by hand'};
-  if(!inv)return await createInvoice(db,owner,invoiceFor(payment,office,on));
-  // A credited invoice is not moved: credited in full, the replacement gets its own invoice; credited in part, by hand.
-  const cr=(await db.prepare("SELECT COALESCE(SUM((data::jsonb->'credit'->>'net')::numeric),0) AS net FROM credit_notes WHERE owner=? AND invoice_id=?").bind(owner,inv.id).first()) as {net:string}|null,creditedNet=Number(cr?.net||0);
-  if(creditedNet>0){if(creditedNet>=(inv.totals?.net||0)-0.004)return await createInvoice(db,owner,invoiceFor(payment,office,on));return {skipped:payment.reference+': not invoiced automatically because the bounced payment\'s invoice is partly credited; issue it by hand'}}
+  // Never invoiced, or its invoice credited in full: the replacement gets its own invoice.
+  if(!inv||creditedNet>0)return await createInvoice(db,owner,invoiceFor(payment,office,on));
   try{const moved:any=await db.prepare("UPDATE invoices SET data=(jsonb_set(jsonb_set(jsonb_set(data::jsonb,'{paymentId}',to_jsonb(?::text)),'{payment}',?::jsonb),'{replacedPayments}',COALESCE(data::jsonb->'replacedPayments','[]'::jsonb)||jsonb_build_object('reference',?::text,'paymentId',?::text,'at',?::text,'by',?::text,'byName',?::text)))::text WHERE id=? AND owner=? AND data::jsonb->>'paymentId'=? AND NOT EXISTS (SELECT 1 FROM credit_notes c WHERE c.owner=invoices.owner AND c.invoice_id=invoices.id) RETURNING id").bind(payment.id,JSON.stringify(payment),o.reference,payment.replacesPaymentId,new Date().toISOString(),by.userId,by.name,inv.id,owner,payment.replacesPaymentId).first();if(moved)return {id:inv.id,url:'/invoice/'+inv.id,reused:true}}
   catch(e){if(/invoice_owner_payment/.test(String((e as Error).message)))return {skipped:'already invoiced'};throw e}
   return {skipped:payment.reference+': the bounced payment\'s invoice changed meanwhile; try again'}}
