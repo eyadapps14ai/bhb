@@ -677,3 +677,4 @@ button.dash-kpi:hover{border-color:#c9a65f;box-shadow:0 2px 10px #b5852f1f}
 .lease-office-pick{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e9e1cf;border-radius:12px;background:#fbf8f1}.lease-office-pick span{display:flex;flex-direction:column;flex:1;min-width:0}.lease-office-pick small{color:#6b665a}
 .lease-review{grid-column:1/-1}
 .theme-modern .tenant-search .tenant-hits{border-color:var(--m-line)}.theme-modern .tenant-hits li[aria-selected=true]{background:var(--m-soft)}.theme-modern .lease-office-pick{background:var(--m-soft);border-color:var(--m-line)}
+.status-locked{display:block;padding:10px 0 2px;font-weight:600}
