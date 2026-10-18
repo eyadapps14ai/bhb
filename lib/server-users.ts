@@ -9,7 +9,8 @@ import type {Database} from '@/db';
 export const person=z.object({id:z.string().optional(),name:z.string().trim().min(1).max(120),email:z.string().trim().toLowerCase().email().max(200),roleId:z.string().min(1).max(80),branches:z.array(z.enum(BRANCHES)).max(BRANCHES.length).default([]),active:z.boolean().default(true),employeeId:z.string().max(80).default(''),password:z.string().max(200).optional()});
 export const password=z.string().min(10,'Use at least 10 characters for the password.').max(200);
 export type LoginPlan={data:z.infer<typeof person>;staysAdmin:boolean};
-export const isSuperAdminLogin=async(db:Database,id:string)=>!!(await db.prepare('SELECT data FROM users WHERE id=?').bind(id).first<{data:string}>())?.data.includes('"roleId":"'+SUPER_ADMIN+'"');
+// Parse the stored JSON: rows rewritten by Postgres (jsonb::text) have spaces after colons, so a text match would miss them.
+export const isSuperAdminLogin=async(db:Database,id:string)=>{const r=await db.prepare('SELECT data FROM users WHERE id=?').bind(id).first<{data:string}>();return !!r&&JSON.parse(r.data).roleId===SUPER_ADMIN};
 // Only a super admin can create, change or reset a super admin, and at least one active super admin must remain.
 // newEmployee: the employee record is saved right after this check, so it does not exist yet.
 export async function checkLogin(db:Database,user:Access,body:unknown,{newEmployee=false}={}):Promise<LoginPlan>{
