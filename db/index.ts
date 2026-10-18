@@ -49,6 +49,13 @@ export class Database {
     return { results: rows as T[] };
   }
 
+  /** Runs statements in one transaction with code in between (checks that decide what happens next); throwing rolls it all back. */
+  transaction<T>(run: (all: <R = Row>(statement: Statement) => Promise<R[]>) => Promise<T>) {
+    return this.driver.transaction((query) =>
+      run(async <R = Row>(statement: Statement) => (await this.execute<R>(statement, query)).results),
+    );
+  }
+
   /** Like D1, a batch runs in one transaction and returns each statement's rows. */
   batch(statements: Statement[]) {
     return this.driver.transaction(async (query) => {

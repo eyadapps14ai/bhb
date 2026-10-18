@@ -691,3 +691,10 @@ button.dash-kpi:hover{border-color:#c9a65f;box-shadow:0 2px 10px #b5852f1f}
 .sort-head{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}.sort-head:hover{color:#1f1c16}.sort-head:focus-visible{outline:2px solid #b5852f;outline-offset:3px;border-radius:4px}
 .office-table th,.office-table td:nth-child(4),.office-table td:nth-child(5){white-space:nowrap}
 .inv-line select+input{margin-top:8px}.mail-lead{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:#2f7a4f;padding:0 6px}
+/* Reset data (Advanced settings, super admin only, Admin #831) */
+.reset-zone{padding:22px 24px;margin-top:18px;border-color:#efc9c4}.reset-zone h2{display:flex;align-items:center;gap:8px;color:#9b2f2f;margin:0 0 8px}.reset-zone>p{margin:0 0 10px;max-width:80ch}
+.reset-counts{color:#3c372d}.reset-steps{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-direction:column;gap:12px}
+.reset-steps li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:#fff}
+.reset-steps li>span:first-child{display:flex;flex-direction:column;gap:2px;flex:1 1 260px}.reset-steps small{color:#6b665a}
+.reset-done{display:inline-flex;align-items:center;gap:6px;color:#2f7a4f;font-weight:600}.reset-confirm{display:flex;flex-wrap:wrap;gap:8px}.reset-confirm input{height:40px;width:140px;padding:0 12px;border:1px solid var(--border);border-radius:10px;font:inherit;letter-spacing:.08em}
+.danger-button{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:10px;border:1px solid #b33a3a;background:#b33a3a;color:#fff;font-weight:600;cursor:pointer}.danger-button:disabled{opacity:.45;cursor:not-allowed}
