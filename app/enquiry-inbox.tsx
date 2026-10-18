@@ -16,8 +16,9 @@ const fullDate=(iso:string)=>new Date(iso).toLocaleString('en-GB',{timeZone:tz,w
 const initials=(name:string)=>name.split(/\s+/).map(w=>w[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
 export const replyLink=(e:Enquiry)=>{const n=waNumber(e.phone)||waNumber(e.phone.replace(/^\s*0(?=[1-9])/,'+971'));return n?'https://wa.me/'+n+'?text='+encodeURIComponent('Hello '+e.name+', thank you for your enquiry about '+e.service+' at BHB Business Centre.'):''};
 export const mailLink=(e:Enquiry)=>'mailto:'+e.email+'?subject='+encodeURIComponent('Your BHB enquiry: '+e.service);
-export default function EnquiryInbox({enquiries,error,onStatus,onAddTenant}:{enquiries:Enquiry[];error:string;onStatus?:(e:Enquiry,status:Enquiry['status'])=>Promise<void>;onAddTenant?:(e:Enquiry)=>void}){
- const [folder,setFolder]=useState<Folder>('New'),[query,setQuery]=useState(''),[pick,setPick]=useState<{id:string|null;index:number}>({id:null,index:0}),[reading,setReading]=useState(false);
+// "Add as lead" saves the person as a customer (Customers, marked Lead) rather than starting a tenant (Admin #840).
+export default function EnquiryInbox({enquiries,error,onStatus,onAddLead,isLead}:{enquiries:Enquiry[];error:string;onStatus?:(e:Enquiry,status:Enquiry['status'])=>Promise<void>;onAddLead?:(e:Enquiry)=>Promise<void>;isLead?:(e:Enquiry)=>boolean}){
+ const [folder,setFolder]=useState<Folder>('New'),[query,setQuery]=useState(''),[pick,setPick]=useState<{id:string|null;index:number}>({id:null,index:0}),[reading,setReading]=useState(false),[adding,setAdding]=useState(false);
  const list=useRef<HTMLDivElement>(null);
  const q=query.trim().toLowerCase();
  const shown=useMemo(()=>enquiries.filter(e=>(folder==='All'||e.status===folder)&&(!q||[e.name,e.email,e.phone,e.service,e.message].some(v=>v.toLowerCase().includes(q)))),[enquiries,folder,q]);
@@ -44,7 +45,7 @@ export default function EnquiryInbox({enquiries,error,onStatus,onAddTenant}:{enq
     {wa&&<a className="secondary wa-reply" href={wa} target="_blank" rel="noopener noreferrer" onClick={()=>replied(selected)}><WhatsAppIcon className="wa-mini"/>Reply on WhatsApp</a>}
     <a className="secondary" href={mailLink(selected)} onClick={()=>replied(selected)}><Mail size={16}/>Email</a>
     {selected.phone&&<a className="secondary" href={'tel:'+selected.phone.replace(/[^\d+]/g,'')} onClick={()=>replied(selected)}><Phone size={16}/>Call</a>}
-    {onAddTenant&&<button type="button" className="secondary" onClick={()=>onAddTenant(selected)}><UserPlus size={16}/>Add as tenant</button>}
+    {onAddLead&&(isLead?.(selected)?<span className="mail-lead"><CheckCircle2 size={16}/>Lead in Customers</span>:<button type="button" className="secondary" disabled={adding} onClick={async()=>{setAdding(true);try{await onAddLead(selected)}finally{setAdding(false)}}}><UserPlus size={16}/>{adding?'Adding…':'Add as lead'}</button>)}
     {onStatus&&<span className="mail-toolbar-end">{selected.status==='New'&&<button type="button" className="primary" onClick={()=>onStatus(selected,'Contacted')}><CheckCircle2 size={16}/>Mark contacted</button>}{selected.status!=='Closed'?<button type="button" className="secondary" onClick={()=>onStatus(selected,'Closed')}><Archive size={16}/>Close</button>:<button type="button" className="secondary" onClick={()=>onStatus(selected,'New')}><RotateCcw size={16}/>Reopen</button>}</span>}</div>
    <div className="mail-body"><h3 className="mail-title">{selected.service}</h3>
     <div className="mail-from"><span className="mail-avatar large" aria-hidden="true">{initials(selected.name)}</span><div><strong>{selected.name}</strong><span><a href={mailLink(selected)} onClick={()=>replied(selected)}>{selected.email}</a>{selected.phone&&<> · <a href={'tel:'+selected.phone.replace(/[^\d+]/g,'')}>{selected.phone}</a></>}</span></div><time dateTime={selected.created}>{fullDate(selected.created)}</time></div>

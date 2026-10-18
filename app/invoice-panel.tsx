@@ -1,7 +1,7 @@
  'use client';
 import {useState} from 'react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
-import {invoiceTotals,invoiceNumber} from '@/lib/invoices';
+import {invoiceTotals,invoiceNumber,SERVICES} from '@/lib/invoices';
 import {today} from '@/lib/records';
 // part 'company': the company and bank details printed on every tax invoice (Advanced settings, one default for both
 // branches); part 'list': the branch's issued invoices (Accounts).
@@ -12,20 +12,23 @@ return <section className="surface" style={{padding:24}}><h2>{part==='company'?'
 // (visas, licences) are charged at cost outside the scope of VAT. Drafts from a payment arrive as a single line.
 type Line={description:string;quantity:number;unitPrice:number;discount:number;kind:'service'|'disbursement'};
 const linesOf=(d:{lines?:Line[];description?:string;quantity?:unknown;unitPrice?:unknown;discount?:unknown}):Line[]=>d.lines?.length?d.lines:[{description:d.description||'',quantity:Number(d.quantity)||1,unitPrice:Number(d.unitPrice)||0,discount:Number(d.discount)||0,kind:'service'}];
-export function InvoiceComposer({draft,setDraft,onIssue}:{draft:any;setDraft:(v:any)=>void;onIssue:(body:any)=>Promise<any>}){const[busy,setBusy]=useState(false),[error,setError]=useState('');
+export function InvoiceComposer({draft,setDraft:set,onIssue}:{draft:any;setDraft:(v:any)=>void;onIssue:(body:any)=>Promise<any>}){const[busy,setBusy]=useState(false),[error,setError]=useState(''),[other,setOther]=useState<number[]>([]);
+ // A customer's invoice picks each line's service from a list (Admin #840); "Other" shows a box to type it.
+ const setDraft=(v:Parameters<typeof set>[0])=>{if(!v)setOther([]);set(v)},pick=!!draft?.customerId,typed=(i:number,v:string)=>other.includes(i)||(!!v&&!SERVICES.includes(v));
  const lines=draft?linesOf(draft):[],totals=draft?invoiceTotals({...draft,lines}):null,single=!!draft?.paymentId;
  const setLines=(next:Line[])=>setDraft({...draft,lines:next});
  const setLine=(i:number,k:keyof Line,v:string)=>setLines(lines.map((l,n)=>n===i?{...l,[k]:k==='description'||k==='kind'?v:Number(v)}:l));
- return <Dialog open={!!draft} onOpenChange={v=>!v&&!busy&&setDraft(null)}><DialogContent className="form-dialog"><DialogTitle>Create tax invoice</DialogTitle><DialogDescription>Details are filled from the office and income record. Review dates, address, lines and VAT before issuing. This creates an invoice, not another income payment.</DialogDescription>{draft&&<form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const r=await onIssue({...draft,lines});setDraft(null);window.open(r.url,'_blank','noopener,noreferrer')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>
+ return <Dialog open={!!draft} onOpenChange={v=>!v&&!busy&&setDraft(null)}><DialogContent className="form-dialog"><DialogTitle>Create tax invoice</DialogTitle><DialogDescription>{pick?'Details are filled from the customer. Choose the services, then review dates, address and VAT before issuing.':'Details are filled from the office and income record. Review dates, address, lines and VAT before issuing.'} This creates an invoice, not another income payment.</DialogDescription>{draft&&<form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const r=await onIssue({...draft,lines});setDraft(null);window.open(r.url,'_blank','noopener,noreferrer')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>
   <div className="form-grid">{[['Invoice issue date','issueDate','date'],['Date of supply','supplyDate','date'],['Client / company','buyerName','text'],['Client billing address','buyerAddress','text'],['Client TRN (if registered)','buyerTrn','text'],['VAT rate on services (%)','vatRate','number']].map(([label,k,type])=><label className="field" key={k}><span>{label}</span><input aria-label={label} type={type} required={k!=='buyerTrn'} pattern={k==='buyerTrn'?'[0-9]{15}':undefined} min={type==='number'?0:undefined} max={k==='issueDate'?today():k==='supplyDate'?draft.issueDate||undefined:undefined} step={type==='number'?'any':undefined} value={draft[k]} onChange={e=>setDraft({...draft,[k]:type==='number'?Number(e.target.value):e.target.value})}/></label>)}</div>
   <h3 className="section-label">Lines</h3>
   <div className="inv-lines">{lines.map((l,i)=><fieldset key={i} className="inv-line"><legend className="sr-only">Line {i+1}</legend>
-   <label className="field wide"><span>Description</span><input aria-label={'Line '+(i+1)+' description'} required value={l.description} onChange={e=>setLine(i,'description',e.target.value)}/></label>
+   {pick?<label className="field wide"><span>Service</span><select aria-label={'Line '+(i+1)+' service'} required value={typed(i,l.description)?'other':l.description} onChange={e=>{const v=e.target.value;setOther(v==='other'?[...other,i]:other.filter(n=>n!==i));setLine(i,'description',v==='other'?'':v)}}><option value="" disabled>Choose a service</option>{SERVICES.map(s=><option key={s}>{s}</option>)}<option value="other">Other (type it)</option></select>{typed(i,l.description)&&<input aria-label={'Line '+(i+1)+' description'} required placeholder="Describe the service" value={l.description} onChange={e=>setLine(i,'description',e.target.value)}/>}</label>
+   :<label className="field wide"><span>Description</span><input aria-label={'Line '+(i+1)+' description'} required value={l.description} onChange={e=>setLine(i,'description',e.target.value)}/></label>}
    <label className="field"><span>Type</span><select aria-label={'Line '+(i+1)+' type'} value={l.kind} disabled={single} onChange={e=>setLine(i,'kind',e.target.value)}><option value="service">Service (VAT)</option><option value="disbursement">Government fee paid for the client (no VAT)</option></select></label>
    <label className="field"><span>Quantity</span><input aria-label={'Line '+(i+1)+' quantity'} type="number" min={0} step="any" required value={l.quantity} onChange={e=>setLine(i,'quantity',e.target.value)}/></label>
    <label className="field"><span>Unit price excl. VAT (AED)</span><input aria-label={'Line '+(i+1)+' unit price'} type="number" min={0} step="any" required value={l.unitPrice} onChange={e=>setLine(i,'unitPrice',e.target.value)}/></label>
    <label className="field"><span>Discount (AED)</span><input aria-label={'Line '+(i+1)+' discount'} type="number" min={0} step="any" value={l.discount} onChange={e=>setLine(i,'discount',e.target.value)}/></label>
-   {lines.length>1&&<button type="button" className="text-button" onClick={()=>setLines(lines.filter((_,n)=>n!==i))}>Remove line</button>}
+   {lines.length>1&&<button type="button" className="text-button" onClick={()=>{setOther(other.filter(n=>n!==i).map(n=>n>i?n-1:n));setLines(lines.filter((_,n)=>n!==i))}}>Remove line</button>}
   </fieldset>)}</div>
   {single?<p className="field-hint">This invoice is for one payment, so it has one line. For several services or government fees, create the invoice from Accounts without choosing a payment.</p>
    :lines.length<30&&<button type="button" className="secondary" onClick={()=>setLines([...lines,{description:'',quantity:1,unitPrice:0,discount:0,kind:'service'}])}>Add line</button>}

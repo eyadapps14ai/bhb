@@ -40,6 +40,8 @@ export const creditNoteSchema=z.object({invoiceId:z.string().min(1).max(80),issu
 export function creditNumber(c:{number:number;branch:string;issueDate:string}){return c.branch+'-CN-'+c.issueDate.slice(0,4)+'-'+String(c.number).padStart(6,'0');}
 // Automatic invoices are only for money received: an income payment with an amount, on a current lease, cleared on
 // or after the branch's go-live date ("Issue invoices automatically from" with your company details in Accounts). Off when unset.
+// Services offered on a customer's tax invoice (Admin #840); "Other" lets you type any other service.
+export const SERVICES=['PRO services','Company formation (mainland)','Company formation (free zone)','Trade licence renewal','Visa processing','Emirates ID','Document attestation','Accounting and bookkeeping','VAT registration','VAT return filing','Corporate tax registration','Virtual office','Meeting room'];
 export const receivedForInvoice=(p:{direction:string;amount:number;officeId:string|null;leaseId?:string|null;status:string;actual?:string},from:string)=>!!from&&p.direction==='Income'&&p.amount>0&&!!p.officeId&&!p.leaseId&&p.status==='Cleared'&&!!p.actual&&p.actual>=from;
 // Why a received payment is not invoiced automatically ('' when it can be). The server and the Accounts count share it.
 // vat: its VAT does not match the lease rate. hand: the lease has an invoice made by hand in its current term, so the
