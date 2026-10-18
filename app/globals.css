@@ -678,3 +678,8 @@ button.dash-kpi:hover{border-color:#c9a65f;box-shadow:0 2px 10px #b5852f1f}
 .lease-review{grid-column:1/-1}
 .theme-modern .tenant-search .tenant-hits{border-color:var(--m-line)}.theme-modern .tenant-hits li[aria-selected=true]{background:var(--m-soft)}.theme-modern .lease-office-pick{background:var(--m-soft);border-color:var(--m-line)}
 .status-locked{display:block;padding:10px 0 2px;font-weight:600}
+/* Tenant field as a dropdown with search; office panel: lease summary and vacant note. */
+.tenant-box{position:relative;display:flex;align-items:center}.tenant-box input{flex:1;padding-right:38px}
+.tenant-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;padding:6px;cursor:pointer;color:#6b665a;display:grid;place-items:center}
+.office-lease-card{flex-wrap:wrap}.office-lease-actions{display:flex;gap:10px;align-items:center;flex-direction:row!important;margin-left:auto}
+.office-vacant{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:6px}.office-vacant .notes{margin:0;flex:1 1 220px}
