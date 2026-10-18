@@ -1,57 +1,16 @@
 'use client';
-import {DoorOpen,Hourglass,Inbox,FileText,Receipt} from 'lucide-react';
-import {MHero,MAttention,MShares,MRows,MThree,MAnalysis,n0,aed0,plural,pct,shortDate,monthKey,type Chip} from './modern-kit';
-import {paymentTotal,type Office,type Payment,type Attachment} from '@/lib/records';
+import {Inbox,FileText,Receipt} from 'lucide-react';
+import {MHero,MAttention,MShares,MRows,MThree,MAnalysis,n0,aed0,plural,pct,shortDate,monthKey} from './modern-kit';
+import {type Office,type Payment,type Attachment} from '@/lib/records';
 import type {Enquiry} from '@/lib/enquiries';
 import {invoiceNumber} from '@/lib/invoices';
 // Modern theme Overview and Analysis for Office portfolio, Enquiries, Documents and Accounts, built from the shared kit.
 const GOLD='#b5852f',BLUE='#2e5f7f',ORANGE='#c98a3c',TRACK='#e6dfd1';
-const yearly=(o:Office)=>o.period==='Monthly'?o.rent*12:o.rent;
-const addDays=(iso:string,n:number)=>{const d=new Date(iso+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
 const prevMonth=(mo:string)=>{const d=new Date(mo+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()-1);return d.toISOString().slice(0,7)};
 const monthName=(mo:string)=>new Date(mo+'-01T00:00:00Z').toLocaleDateString('en-GB',{month:'long',timeZone:'UTC'});
-const isPending=(p:Payment)=>p.direction==='Income'&&p.status==='Pending';
 type DrillOff=(title:string,off:(o:Office,docs:Attachment[])=>boolean,note?:string)=>void;
 type DrillPay=(title:string,pay:(p:Payment)=>boolean,note?:string,amount?:(p:Payment)=>number)=>void;
 const delta=(now:number,before:number,label:string,money=false)=>{const d=now-before;return d?{text:(d>0?'+':'−')+(money?'AED ':'')+n0(Math.abs(d))+' vs '+label,up:d>0}:null};
-
-// ---------- Office portfolio ----------
-export type BranchLine={name:string;offices:number;active:number;cashIn:number;current:boolean;pick:()=>void};
-export function OfficesOverview({offices,payments,documents,leases,asof,month,branches,isExpiring,isMissing,drillOff,drillPay}:{offices:Office[];payments:Payment[];documents:Attachment[];leases:any[];asof:string;month:string;branches:BranchLine[];isExpiring:(o:Office)=>boolean;isMissing:(o:Office,docs:Attachment[])=>boolean;drillOff:DrillOff;drillPay:DrillPay}){
- const physical=offices.filter(o=>o.kind==='Physical'),let_=physical.filter(o=>o.status==='Active'),virtual=offices.filter(o=>o.kind==='Virtual'),active=offices.filter(o=>o.status==='Active');
- const checks=payments.filter(p=>p.method==='Check'&&isPending(p)),soon=addDays(asof,30);
- const expiring=offices.filter(isExpiring),missing=offices.filter(o=>isMissing(o,documents)),awaiting=leases.filter(l=>!l.vacated);
- const ending=active.filter(o=>o.end&&o.end>=asof&&o.end<=soon),licences=active.filter(o=>o.licenseExpiry&&o.licenseExpiry>=asof&&o.licenseExpiry<=soon),dueIn=payments.filter(p=>isPending(p)&&p.due>=asof&&p.due<=soon);
- const chips:Chip[]=[];
- if(expiring.length)chips.push({label:plural(expiring.length,'lease or licence date')+' due',onClick:()=>drillOff('Lease or licence dates due',isExpiring,'Active offices whose lease or trade licence ends within 30 days of '+shortDate(asof)+', or has already ended.')});
- if(missing.length)chips.push({label:plural(missing.length,'office')+' missing copies',onClick:()=>drillOff('Missing licence details or copies',isMissing,'Active offices without a trade licence number, or without an uploaded licence or lease copy.')});
- const statuses=['Active','Available','Reserved','Inactive'] as const;
- return <>
-  <MHero label="Occupancy · physical offices" value={pct(let_.length,physical.length)+'%'} bar={[[let_.length,GOLD],[physical.length-let_.length,TRACK]]} onClick={()=>drillOff('Let physical offices',o=>o.kind==='Physical'&&o.status==='Active')}
-   text={physical.length?<>{let_.length} of {plural(physical.length,'physical office')} are let. {physical.filter(o=>o.status==='Available').length} available, {physical.filter(o=>o.status==='Reserved').length} reserved.</>:'Add your first physical office to see occupancy.'}
-   stats={[{label:'Annual rent roll',value:aed0(active.reduce((a,o)=>a+yearly(o),0)),sub:plural(active.length,'active lease')+' · excl. VAT',onClick:()=>drillOff('Active leases',o=>o.status==='Active')},
-    {label:<><DoorOpen size={14}/>Virtual offices</>,value:n0(virtual.length),sub:virtual.filter(o=>o.status==='Active').length+' active',onClick:()=>drillOff('Virtual offices',o=>o.kind==='Virtual')},
-    {label:<><Hourglass size={14}/>Pending checks</>,value:aed0(checks.reduce((a,p)=>a+paymentTotal(p),0)),sub:checks.length?plural(checks.length,'check')+' not yet cleared':'Nothing waiting to clear',onClick:()=>drillPay('Pending checks',p=>p.method==='Check'&&isPending(p),'Incoming checks that have not cleared yet.')}]}/>
-  {(chips.length>0||awaiting.length>0)&&<MAttention title={plural(expiring.length+missing.length,'office needs','offices need')+' you'} sub={awaiting.length?plural(awaiting.length,'cancelled lease')+' awaiting vacancy':undefined} chips={chips}/>}
-  <MThree>
-   <MShares title="Offices by status" sub={plural(offices.length,'office')+' in this branch'} empty="No offices yet." total={['All offices',n0(offices.length)]}
-    rows={statuses.map(s=>{const n=offices.filter(o=>o.status===s).length;return {label:s,value:n,text:plural(n,'office'),onClick:()=>drillOff(s+' offices',o=>o.status===s)}})}/>
-   <MRows title="Branches" sub={'Cash in · '+monthName(month)} rows={branches.map(b=>({label:b.name+(b.current?' · viewing':''),sub:plural(b.offices,'office')+' · '+b.active+' active',value:aed0(b.cashIn),onClick:b.pick}))}/>
-   <MRows title="Next 30 days" sub={'From '+shortDate(asof)} rows={[
-    {label:'Leases ending',sub:ending.length?ending.slice(0,2).map(o=>o.code).join(', ')+(ending.length>2?' and more':''):undefined,value:ending.length?n0(ending.length):<em>None</em>,onClick:ending.length?()=>drillOff('Leases ending in 30 days',o=>o.status==='Active'&&!!o.end&&o.end>=asof&&o.end<=soon):undefined},
-    {label:'Licences expiring',value:licences.length?n0(licences.length):<em>None</em>,onClick:licences.length?()=>drillOff('Licences expiring in 30 days',o=>o.status==='Active'&&!!o.licenseExpiry&&o.licenseExpiry>=asof&&o.licenseExpiry<=soon):undefined},
-    {label:'Income due',value:dueIn.length?'+ '+aed0(dueIn.reduce((a,p)=>a+paymentTotal(p),0)):<em>Nothing scheduled</em>,tone:'up',onClick:dueIn.length?()=>drillPay('Income due in 30 days',p=>isPending(p)&&p.due>=asof&&p.due<=soon):undefined}]}
-    dark={ending.length?{label:'Rent up for renewal',value:aed0(ending.reduce((a,o)=>a+yearly(o),0)),sub:'a year, on '+plural(ending.length,'lease')+' ending soon'}:{label:'Rent up for renewal',value:'AED 0',sub:'No lease ends in the next 30 days'}}/>
-  </MThree>
- </>;
-}
-export function OfficeAnalysis({offices,onOpen}:{offices:Office[];onOpen:(id:string)=>void}){
- return <MAnalysis title="Analyze offices" subtitle="Annual rent, excl. VAT · every office in this branch" rows={offices} unit="Annual rent (AED)" filename="offices" measure={yearly} format={aed0}
-  describe={o=>({label:o.code,sub:(o.company||'No tenant')+' · '+o.status})} onOpen={o=>onOpen(o.id)} search={o=>[o.code,o.company,o.contact,o.location].join(' ')}
-  filters={[{id:'all',label:'All',test:()=>true},{id:'active',label:'Active',test:o=>o.status==='Active'},{id:'physical',label:'Physical',test:o=>o.kind==='Physical'},{id:'virtual',label:'Virtual',test:o=>o.kind==='Virtual'}]}
-  groupings={[{id:'status',label:'Status',key:o=>o.status,order:o=>String(['Active','Available','Reserved','Inactive'].indexOf(o.status)),sort:'asc'},{id:'type',label:'Type',key:o=>o.kind},{id:'location',label:'Location',key:o=>o.location||'Location not set'},{id:'end',label:'Lease end',key:o=>o.end?monthKey(o.end):'No lease',order:o=>o.end||'9999',sort:'asc'},{id:'tenant',label:'Tenant',key:o=>o.company||'No tenant'}]}
-  summary={l=>[['Offices',n0(l.length)],['Active',n0(l.filter(o=>o.status==='Active').length)],['Annual rent',aed0(l.reduce((a,o)=>a+yearly(o),0))]]}/>;
-}
 
 // ---------- Enquiries ----------
 const pageName=(p:string)=>!p?'Not given':p==='/'?'Home page':p;
