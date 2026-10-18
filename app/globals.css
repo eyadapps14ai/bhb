@@ -667,7 +667,7 @@ button.dash-kpi:hover{border-color:#c9a65f;box-shadow:0 2px 10px #b5852f1f}
 .adv-prefs{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;padding:16px 20px;margin-bottom:16px}.adv-prefs h2{margin:0;font-size:16px}.adv-prefs p{margin:4px 0 0;color:#6b665a;font-size:13.5px}
 .theme-modern .adv-prefs p{color:var(--m-muted)}
 /* Multi-line tax invoices (app/invoice-panel.tsx, app/invoice/[id]/page.tsx). */
-.inv-lines{display:flex;flex-direction:column;gap:10px;margin:6px 0 10px}.inv-line{display:grid;grid-template-columns:2fr 1.6fr .7fr 1fr .8fr;gap:8px 10px;align-items:end;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:0}.inv-line .wide{grid-column:1/-1}.inv-line .text-button{grid-column:1/-1;justify-self:start;padding:0}
+.inv-lines{display:flex;flex-direction:column;gap:10px;margin:6px 0 10px}.inv-line{display:grid;grid-template-columns:minmax(0,1fr) minmax(76px,96px) minmax(150px,180px) minmax(110px,140px);gap:8px 10px;align-items:end;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:0}.inv-line .wide{grid-column:1/-1}.inv-line .text-button{grid-column:1/-1;justify-self:start;padding:0}
 .invoice-table td small{display:block;font-size:11px;color:#6f6a5c;margin-top:2px}.invoice-table tr.inv-outside td{background:#faf8f2}
 @media(max-width:650px){.inv-line{grid-template-columns:1fr 1fr}}
 /* New lease wizard: tenant smart search, the chosen office, the check-and-save list. */
