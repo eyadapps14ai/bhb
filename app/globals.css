@@ -703,3 +703,7 @@ button.dash-kpi:hover{border-color:#c9a65f;box-shadow:0 2px 10px #b5852f1f}
 .mail-list-title{flex-wrap:wrap;gap:4px 10px}.mail-list-title>span{margin-right:auto}.mail-sort{display:inline-flex;align-items:center;gap:5px;border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:#765410;cursor:pointer;padding:2px 0}.mail-sort:hover{text-decoration:underline}
 @media(max-width:720px){.inbox.full{height:auto}}
 .theme-modern .inbox.full{height:max(540px,calc(100dvh - 138px))}
+/* Rent period radios and documents in New lease (Admin #955) */
+.rent-period{display:flex;flex-direction:column;gap:8px}.rent-period>.seg{align-self:flex-start;flex-wrap:wrap}.rent-per{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:#5f5a4d}
+.lease-files h3{margin:4px 0 2px;font-size:15px}.lease-files h3 small{font-weight:400;color:#7a7465;margin-left:6px}.lease-files input[type=file]{font:inherit;font-size:13px;padding:8px 0}
+.seg button[aria-checked=true]{background:#fff;color:#1d1d1b;box-shadow:0 1px 3px #00000014}.theme-modern .seg button[aria-checked=true]{font-weight:600}
