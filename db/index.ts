@@ -102,16 +102,20 @@ function postgres(): Driver {
     },
     async transaction(run) {
       const client = await pool.connect();
+      // A client whose ROLLBACK fails is broken: it is dropped (release with the error) instead of reused.
+      let broken: Error | undefined;
       try {
         await client.query("BEGIN");
         const result = await run((sql, params) => client.query(sql, params));
         await client.query("COMMIT");
         return result;
       } catch (error) {
-        await client.query("ROLLBACK").catch(() => {});
+        await client.query("ROLLBACK").catch((e: Error) => {
+          broken = e;
+        });
         throw error;
       } finally {
-        client.release();
+        client.release(broken);
       }
     },
   };

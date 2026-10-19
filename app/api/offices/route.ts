@@ -22,9 +22,8 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
  // A lease needs a rent above 0 (Admin #826). An existing zero-rent lease can still be saved unchanged (office edits).
  const zeroRent=!!data.company&&!!data.start&&!data.leaseClosed&&!(Number(data.rent)>0);const plan=scheduleSchema.parse(body.schedule??null);checkBranch(user,data.branch);const id=data.id||crypto.randomUUID();let before:{company?:string;start?:string}|null=null,renamedFrom='';if(data.id){await checkOffice(db,owner,user,id);const row:any=await db.prepare('SELECT data FROM offices WHERE id=? AND owner=?').bind(id,owner).first();const old=JSON.parse(row.data);before=old;if(old.company&&data.company!==old.company){if(old.leaseClosed||!old.start)throw new Error('Cancel the existing lease and confirm vacancy before replacing the tenant.');
   // The tenant of a running lease can be corrected (picked from the customers in Edit lease, Admin #863) until the lease
-  // has a tax invoice or money received; after that another company needs its own lease (cancel this one first).
-  const invoiced=await db.prepare("SELECT 1 FROM invoices WHERE owner=? AND office_id=? AND COALESCE(NULLIF(data::jsonb->>'supplyDate',''),data::jsonb->>'issueDate')>=? LIMIT 1").bind(owner,id,old.start).first(),paid=await db.prepare("SELECT 1 FROM payments p WHERE p.owner=? AND p.office_id=? AND p.data::jsonb->>'direction'='Income' AND p.data::jsonb->>'status'='Cleared' AND NOT EXISTS (SELECT 1 FROM leases l WHERE l.owner=p.owner AND l.office_id=p.office_id AND (l.data::jsonb->'paymentIds') @> jsonb_build_array(p.id)) LIMIT 1").bind(owner,id).first();
-  if(invoiced||paid)throw new Error('This lease already has '+(invoiced?'a tax invoice':'money received')+', so its tenant cannot be changed. To let the office to another company, cancel this lease in Lease history, then make a new lease.');renamedFrom=old.company}if(old.leaseClosed&&old.company)throw new Error('Confirm vacancy in Lease history before changing this office.');data.leaseClosed=!!old.leaseClosed&&!!old.company;}
+  // has a tax invoice or money received; that is checked when saving, with the office and its payments locked.
+  if(!data.company)throw new Error('A running lease needs a tenant. To free the office, cancel the lease in Lease history.');renamedFrom=old.company}if(old.leaseClosed&&old.company)throw new Error('Confirm vacancy in Lease history before changing this office.');data.leaseClosed=!!old.leaseClosed&&!!old.company;}
  if(zeroRent&&!(before&&before.company===data.company&&!(Number((before as {rent?:number}).rent)>0)))throw new Error('Enter the rent: a lease needs a rent above 0.');
  // A tenant with lease dates means the office is let. The map and the connector read Status while Leases reads tenant
  // and start, so a lease saved with Status left on Available showed a let office as Vacant (#679).
@@ -36,8 +35,6 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
    throw new Error('This office was occupied until '+day(last.d)+' (the last tenant moved out then). Start the new lease on '+day(next)+' or later.');}}const duplicate=await db.prepare("SELECT id FROM offices WHERE owner=? AND id<>? AND (data::jsonb->>'code')=? AND COALESCE(data::jsonb->>'branch','BHB')=?").bind(owner,id,data.code,data.branch).first();if(duplicate)throw new Error('This office number already exists in this branch.');
  const statements=[db.prepare('INSERT INTO offices (id,owner,code,data) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET code=excluded.code,data=excluded.data WHERE offices.owner=excluded.owner').bind(id,owner,data.branch+':'+data.code,JSON.stringify({...data,id}))];
  let created=0,batchId='';
- // A corrected tenant: this lease's payments that named the old tenant now name the new one.
- if(renamedFrom){const rows=(await db.prepare("SELECT p.id,p.data FROM payments p WHERE p.owner=? AND p.office_id=? AND p.data::jsonb->>'party'=? AND NOT EXISTS (SELECT 1 FROM leases l WHERE l.owner=p.owner AND l.office_id=p.office_id AND (l.data::jsonb->'paymentIds') @> jsonb_build_array(p.id))").bind(owner,id,renamedFrom).all()).results as {id:string;data:string}[];for(const r of rows)statements.push(db.prepare('UPDATE payments SET data=? WHERE id=? AND owner=?').bind(JSON.stringify({...JSON.parse(r.data),party:data.company}),r.id,owner))}
  if(plan?.on&&plan.rows.length){
   if(!can(user,'cash','edit'))throw new Error('Saving a payment schedule needs edit rights on Cash and expenses. Untick the schedule or ask an admin.');
   if(!data.company||!data.start||!data.end)throw new Error('Add the tenant and lease dates before creating a payment schedule.');
@@ -54,6 +51,20 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
   }
  }
  if(created)statements.unshift(db.prepare('SELECT pg_advisory_xact_lock(hashtext(?))').bind('schedule:'+id));
- await db.batch(statements);
+ if(renamedFrom)await db.transaction(async all=>{
+  // A tenant change runs in one transaction with the office row and this lease's payments locked, so no invoice,
+  // payment or receipt for this office can be saved meanwhile. What blocks it is decided by link, not by date: money
+  // received on this lease, an invoice on one of its payments, or an invoice made by hand after the office's last
+  // cancelled lease (with no cancelled lease, any invoice of the office).
+  await all(db.prepare('SELECT id FROM offices WHERE id=? AND owner=? FOR UPDATE').bind(id,owner));
+  const pays=(await all<{id:string;data:string}>(db.prepare("SELECT p.id,p.data FROM payments p WHERE p.owner=? AND p.office_id=? AND NOT EXISTS (SELECT 1 FROM leases l WHERE l.owner=p.owner AND l.office_id=p.office_id AND (l.data::jsonb->'paymentIds') @> jsonb_build_array(p.id)) FOR UPDATE OF p").bind(owner,id))).map(r=>({id:r.id,...JSON.parse(r.data)}));
+  const paid=pays.some(p=>p.direction==='Income'&&p.status==='Cleared'),ids=JSON.stringify(pays.map(p=>p.id));
+  const invoiced=(await all(db.prepare("SELECT 1 FROM invoices i WHERE i.owner=? AND i.office_id=? AND (COALESCE(i.data::jsonb->>'paymentId','') IN (SELECT jsonb_array_elements_text(?::jsonb)) OR (COALESCE(i.data::jsonb->>'paymentId','')='' AND i.data::jsonb->>'issueDate'>COALESCE((SELECT GREATEST(MAX(l.data::jsonb->>'date'),MAX(l.data::jsonb->>'moveOut')) FROM leases l WHERE l.owner=i.owner AND l.office_id=i.office_id),''))) LIMIT 1").bind(owner,id,ids))).length>0;
+  if(invoiced||paid)throw new Error('This lease already has '+(invoiced?'a tax invoice':'money received')+', so its tenant cannot be changed. To let the office to another company, cancel this lease in Lease history, then make a new lease.');
+  // The lease's payments that named the old tenant now name the new one; that changes payments, so it needs Cash edit.
+  const named=pays.filter(p=>p.party===renamedFrom);if(named.length&&!can(user,'cash','edit'))throw new Error('Changing the tenant also renames its payments, which needs edit rights on Cash and expenses.');
+  for(const st of statements)await all(st);
+  for(const p of named)await all(db.prepare('UPDATE payments SET data=? WHERE id=? AND owner=?').bind(JSON.stringify({...p,party:data.company}),p.id,owner));
+ });else await db.batch(statements);
  if(created){const r:any=await db.prepare("SELECT COUNT(*) AS n FROM payments WHERE owner=? AND office_id=? AND data::jsonb->>'scheduleBatch'=?").bind(owner,id,batchId).first();const saved=Number(r?.n)||0;if(!saved)return Response.json({id,payments:0,note:'Saved. No new payments were added: this lease already has a payment schedule for these dates.'+(madeActive?' '+activeNote:'')});created=saved}
  return Response.json({id,payments:created,...(madeActive?{note:activeNote}:{})});}catch(e){return failure(e);}}

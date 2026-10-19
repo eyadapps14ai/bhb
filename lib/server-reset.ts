@@ -6,7 +6,8 @@ import type {Access} from './access';
 // (UAE rules keep tax documents for years), nor what they point to: the office, payment and customer of each invoice,
 // and everything tied to a kept office. Employees, logins, roles, settings, enquiries and to-dos stay. The backup a
 // super admin downloads first holds exactly the rows the reset deletes: its fingerprint must still match, inside the
-// same transaction, or nothing is deleted. Document files stay in storage, so the backup (with their keys) can restore them.
+// same transaction, or nothing is deleted. Uploaded files are not erased from storage: only their records are deleted,
+// and the backup keeps each file's storage key, so a restore can link them again.
 type All=<R>(statement:Statement)=>Promise<R[]>;
 type Office={id:string;code:string;data:string};type Payment={id:string;office_id:string|null;data:string};type Lease={id:string;office_id:string;data:string};
 type Doc={id:string;office_id:string;payment_id:string|null;name:string;category:string;mime:string;size:number;key:string;created:string};type Customer={id:string;data:string};
@@ -34,10 +35,14 @@ export function resetBackup(p:ResetPlan,user:Access){const parse=<T extends {dat
   rows:{offices:parse(p.del.offices),leases:parse(p.del.leases),payments:parse(p.del.payments),documents:p.del.documents,customers:parse(p.del.customers)}}}
 export async function resetData(db:Database,owner:string,user:Access,fingerprint:string){
  return db.transaction(async all=>{
-  // No invoice or credit note can be issued (or changed) while this runs, so nothing a tax document points to is deleted.
+  // No invoice or credit note can be issued (or changed), and no office, payment, lease, document or customer saved,
+  // while this runs; if someone is saving right now, it waits at most 5 seconds and then asks to try again.
+  await all(db.prepare("SET LOCAL lock_timeout = '5s'"));
   await all(db.prepare('LOCK TABLE invoices, credit_notes IN SHARE MODE'));
+  await all(db.prepare('LOCK TABLE offices, payments, leases, documents, customers IN EXCLUSIVE MODE'));
   const plan=await resetPlan(db,all,owner);
   if(plan.fingerprint!==fingerprint)throw new Error('The data changed after your backup was made. Download a new backup, then reset.');
+  if(Object.values(resetCounts(plan)).every(n=>!n))throw new Error('Nothing to delete.');
   const gone=async(table:'documents'|'leases'|'payments'|'offices'|'customers',rows:{id:string}[])=>{if(rows.length)await all(db.prepare('DELETE FROM '+table+' WHERE owner=? AND id IN (SELECT jsonb_array_elements_text(?::jsonb))').bind(owner,JSON.stringify(rows.map(r=>r.id))))};
   await gone('documents',plan.del.documents);await gone('leases',plan.del.leases);await gone('payments',plan.del.payments);await gone('offices',plan.del.offices);await gone('customers',plan.del.customers);
   const at=new Date().toISOString(),entry={action:'reset',at,by:user.userId,byName:user.name,byEmail:user.email,deleted:resetCounts(plan),kept:plan.kept,fingerprint};
