@@ -156,6 +156,12 @@ CREATE TABLE IF NOT EXISTS customers (
 );
 -- An invoice is for an office (a tenant) or for a customer without an office.
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'invoices' AND column_name = 'office_id' AND is_nullable = 'NO') THEN ALTER TABLE invoices ALTER COLUMN office_id DROP NOT NULL; END IF; END $$;
+-- Settings kept once for the whole workspace (Advanced settings), e.g. how office numbers are written.
+CREATE TABLE IF NOT EXISTS app_settings (
+  id text PRIMARY KEY,
+  owner text NOT NULL,
+  data text NOT NULL
+);
 -- What was done to the data as a whole (a reset from Advanced settings): who, when, what, never changed afterwards.
 CREATE TABLE IF NOT EXISTS audit_log (
   id text PRIMARY KEY,

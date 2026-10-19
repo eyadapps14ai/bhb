@@ -30,3 +30,11 @@ export const customerSchema=z.object({id:z.string().optional(),branch:z.enum(['B
  // Where a customer who is not a tenant came from, e.g. a website enquiry saved as a lead (Admin #840).
  source:z.string().trim().max(200).default('')});
 export type StoredCustomer=z.infer<typeof customerSchema>&{id:string;created:string};
+
+// Office numbers (Admin #1069): set once in Advanced settings. A new office's code is the branch prefix + the number,
+// plus the ending for virtual offices (BHB-12, 111-4, BHB-12V). Typing the full code also works (nothing is doubled).
+export const officeNumberingSchema=z.object({prefixes:z.object({BHB:z.string().trim().max(20).default('BHB-'),'111':z.string().trim().max(20).default('111-')}),virtualSuffix:z.string().trim().max(10).default('V')});
+export type OfficeNumbering=z.infer<typeof officeNumberingSchema>;
+export const defaultNumbering:OfficeNumbering={prefixes:{BHB:'BHB-','111':'111-'},virtualSuffix:'V'};
+export function officeCode(typed:string,branch:string,kind:string,n:OfficeNumbering=defaultNumbering){const t=typed.trim();if(!t)return '';const p=n.prefixes[branch as 'BHB'|'111']??'',v=kind==='Virtual'?n.virtualSuffix:'';
+ return (p&&!t.toLowerCase().startsWith(p.toLowerCase())?p:'')+t+(v&&!t.toLowerCase().endsWith(v.toLowerCase())?v:'')}
