@@ -38,3 +38,7 @@ export type OfficeNumbering=z.infer<typeof officeNumberingSchema>;
 export const defaultNumbering:OfficeNumbering={prefixes:{BHB:'BHB-','111':'111-'},virtualSuffix:'V'};
 export function officeCode(typed:string,branch:string,kind:string,n:OfficeNumbering=defaultNumbering){const t=typed.trim();if(!t)return '';const p=n.prefixes[branch as 'BHB'|'111']??'',v=kind==='Virtual'?n.virtualSuffix:'';
  return (p&&!t.toLowerCase().startsWith(p.toLowerCase())?p:'')+t+(v&&!t.toLowerCase().endsWith(v.toLowerCase())?v:'')}
+// A stored numbering row that no longer matches the schema falls back to the defaults instead of failing the page.
+export const readNumbering=(raw:string|undefined|null):OfficeNumbering=>{if(!raw)return defaultNumbering;try{const r=officeNumberingSchema.safeParse(JSON.parse(raw));return r.success?r.data:defaultNumbering}catch{return defaultNumbering}};
+// The office number without the branch prefix, to find the same office written old ("12") and new ("BHB-12") style.
+export const plainCode=(code:string,branch:string,n:OfficeNumbering)=>{const c=code.trim().toLowerCase(),p=(n.prefixes[branch as 'BHB'|'111']||'').toLowerCase();return p&&c.startsWith(p)?c.slice(p.length):c};

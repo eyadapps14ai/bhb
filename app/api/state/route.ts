@@ -1,7 +1,7 @@
 import {context,failure} from '@/lib/server-records';
 import {can,has,DEFAULT_RATES} from '@/lib/access';
 import {loadRoles} from '@/lib/auth';
-import {officeNumberingSchema,defaultNumbering} from '@/lib/records';
+import {readNumbering} from '@/lib/records';
 type Row={id:string;data:string;officeId?:string;seq?:number;email?:string};
 // Each person only receives their branches and the sections their role can open.
 export async function GET(req:Request){try{const{db,owner,user}=await context(req);const [offices,payments,docs,leases,requests,employees,invoices,issuers,users,tasks,customers,creditNotes,settings]=await db.batch([db.prepare('SELECT id,data FROM offices WHERE owner=? ORDER BY code').bind(owner),db.prepare('SELECT id,data FROM payments WHERE owner=?').bind(owner),db.prepare('SELECT id,office_id AS "officeId",payment_id AS "paymentId",name,category,mime,size,created FROM documents WHERE owner=? ORDER BY created DESC').bind(owner),db.prepare('SELECT id,office_id AS "officeId",data FROM leases WHERE owner=?').bind(owner),db.prepare('SELECT id,data FROM employee_requests WHERE owner=?').bind(owner),db.prepare('SELECT id,data FROM employees WHERE owner=?').bind(owner),db.prepare('SELECT id,seq,office_id AS "officeId",data FROM invoices WHERE owner=? ORDER BY seq DESC').bind(owner),db.prepare('SELECT data FROM invoice_issuers WHERE owner=?').bind(owner),db.prepare('SELECT id,email,data FROM users ORDER BY created'),db.prepare('SELECT id,assignee,data FROM tasks WHERE owner=?').bind(owner),db.prepare('SELECT id,data FROM customers WHERE owner=?').bind(owner),db.prepare('SELECT id,invoice_id AS "invoiceId",data FROM credit_notes WHERE owner=?').bind(owner),db.prepare("SELECT data FROM app_settings WHERE id=? AND owner=?").bind(owner+':officeNumbering',owner)]);
@@ -28,7 +28,7 @@ const salesCash=can(user,'sales')?allPayments.filter(p=>cashIds.has(p.id)&&p.dir
 // My dashboard: to-dos for this person (every to-do for those who manage Users & roles) and their own requests.
 const manager=can(user,'users','edit'),taskList=(tasks.results as {id:string;assignee:string;data:string}[]).filter(t=>manager||t.assignee===user.userId).map(t=>({...JSON.parse(t.data),id:t.id,assignee:t.assignee}));
 const myRequests=user.employeeId?rows(requests).map(parse).filter(r=>r.employeeId===user.employeeId):[];
-const numberingRow=(settings.results as {data:string}[])[0],officeNumbering=numberingRow?officeNumberingSchema.parse(JSON.parse(numberingRow.data)):defaultNumbering;
+const officeNumbering=readNumbering((settings.results as {data:string}[])[0]?.data);
 return Response.json({me:user,salesStaff,salesCash,tasks:taskList,myRequests,officeNumbering,
 offices:officeList,
 payments:money?rows(payments).map(parse).filter(p=>p.officeId?ids.has(p.officeId):inBranch(p.branch)).filter(p=>cashBook||(!!p.officeId&&p.direction==='Income')):[],

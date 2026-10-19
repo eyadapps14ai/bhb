@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {officeSchema,paymentSchema,leaseRoom,today} from '@/lib/records';
+import {officeSchema,paymentSchema,leaseRoom,today,readNumbering,plainCode} from '@/lib/records';
 const aedText=(n:number)=>'AED '+new Intl.NumberFormat('en-AE',{maximumFractionDigits:2}).format(n);
 import {can} from '@/lib/access';
 import type {Database} from '@/db';
@@ -11,13 +11,14 @@ const scheduleSchema=z.object({on:z.boolean(),method:z.enum(['Check','Transfer',
 // Many offices at once (Admin #784): numbers From..To with an optional prefix, all Available until they are leased.
 // One transaction; a number that already exists is skipped and reported, never overwritten.
 const bulkSchema=z.object({from:z.coerce.number().int().min(0).max(99999),to:z.coerce.number().int().min(0).max(99999),prefix:z.string().trim().max(20).default(''),suffix:z.string().trim().max(10).optional(),branch:z.enum(['BHB','111']),kind:z.enum(['Physical','Virtual']),location:z.string().max(2000).default(''),area:z.coerce.number().finite().min(0).max(1e7).default(0),desks:z.coerce.number().int().min(0).max(100000).default(0),vat:z.coerce.number().finite().min(0).max(100).default(0)}).refine(b=>b.to>=b.from,'"To" must not be below "From".').refine(b=>b.to-b.from<200,'Add up to 200 offices at a time.');
+const numberingOf=async(db:Database,owner:string)=>readNumbering((await db.prepare('SELECT data FROM app_settings WHERE id=? AND owner=?').bind(owner+':officeNumbering',owner).first<{data:string}>())?.data);
 async function addMany(db:Database,owner:string,body:unknown){const b=bulkSchema.parse(body),rows:{id:string;code:string;data:string}[]=[];
  // The code column holds branch + ':' + number (as single saves do); numbers already in this branch are skipped first,
  // using the same test as the single-save duplicate check, so older rows are covered too.
- const taken=new Set(((await db.prepare("SELECT data::jsonb->>'code' AS code FROM offices WHERE owner=? AND COALESCE(data::jsonb->>'branch','BHB')=?").bind(owner,b.branch).all()).results as {code:string}[]).map(r=>r.code));
+ const numbering=await numberingOf(db,owner),taken=new Set(((await db.prepare("SELECT data::jsonb->>'code' AS code FROM offices WHERE owner=? AND COALESCE(data::jsonb->>'branch','BHB')=?").bind(owner,b.branch).all()).results as {code:string}[]).map(r=>plainCode(r.code||'',b.branch,numbering)));
  // Codes are prefix + number, with a V at the end for virtual offices (Admin #897/#900): BHB-1, 111-4, BHB-1V.
  const codeOf=(n:number)=>b.prefix+n+(b.kind==='Virtual'?b.suffix??'V':'');
- for(let n=b.from;n<=b.to;n++){const code=codeOf(n);if(taken.has(code))continue;const id=crypto.randomUUID(),o=officeSchema.parse({code,branch:b.branch,kind:b.kind,status:'Available',location:b.location,area:b.area,desks:b.desks,company:'',contact:'',email:'',phone:'',trn:'',billingAddress:'',licenseNumber:'',licenseExpiry:'',leaseReference:'',start:'',end:'',rent:0,period:'Yearly',deposit:0,vat:b.vat,services:'',notes:''});rows.push({id,code,data:JSON.stringify({...o,id})})}
+ for(let n=b.from;n<=b.to;n++){const code=codeOf(n);if(taken.has(plainCode(code,b.branch,numbering)))continue;const id=crypto.randomUUID(),o=officeSchema.parse({code,branch:b.branch,kind:b.kind,status:'Available',location:b.location,area:b.area,desks:b.desks,company:'',contact:'',email:'',phone:'',trn:'',billingAddress:'',licenseNumber:'',licenseExpiry:'',leaseReference:'',start:'',end:'',rent:0,period:'Yearly',deposit:0,vat:b.vat,services:'',notes:''});rows.push({id,code,data:JSON.stringify({...o,id})})}
  const res=rows.length?await db.batch(rows.map(r=>db.prepare("INSERT INTO offices (id,owner,code,data) VALUES (?,?,?,?) ON CONFLICT (owner,code) DO NOTHING RETURNING data::jsonb->>'code' AS code").bind(r.id,owner,b.branch+':'+r.code,r.data))):[];
  const made=new Set((res as {results:{code:string}[]}[]).flatMap(r=>r.results.map(x=>x.code))),all=Array.from({length:b.to-b.from+1},(_,i)=>codeOf(b.from+i));return {created:made.size,skipped:all.filter(c=>!made.has(c))}}
 // Rights (Admin #968): the office itself (number, branch, type, location, area, desks) needs Offices edit; its lease
@@ -42,7 +43,9 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
  // move-out in Lease history. Saves that keep the tenant and start date as they are (other edits) are not checked.
  if(data.company&&data.start&&(!before?.company||before.start!==data.start)){const last=await db.prepare("SELECT MAX(data::jsonb->>'moveOut') AS d FROM leases WHERE owner=? AND office_id=?").bind(owner,id).first<{d:string|null}>();
   if(last?.d&&data.start<=last.d){const day=(d:string)=>new Date(d+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}),next=new Date(Date.parse(last.d+'T00:00:00Z')+864e5).toISOString().slice(0,10);
-   throw new Error('This office was occupied until '+day(last.d)+' (the last tenant moved out then). Start the new lease on '+day(next)+' or later.');}}const duplicate=await db.prepare("SELECT id FROM offices WHERE owner=? AND id<>? AND (data::jsonb->>'code')=? AND COALESCE(data::jsonb->>'branch','BHB')=?").bind(owner,id,data.code,data.branch).first();if(duplicate)throw new Error('This office number already exists in this branch.');
+   throw new Error('This office was occupied until '+day(last.d)+' (the last tenant moved out then). Start the new lease on '+day(next)+' or later.');}}// The same number is the same office, written old ("12") or new ("BHB-12") style (bhb-reviewer #1073).
+ const numbering=await numberingOf(db,owner),mine=plainCode(data.code,data.branch,numbering);
+ const duplicate=((await db.prepare("SELECT id,data::jsonb->>'code' AS code FROM offices WHERE owner=? AND id<>? AND COALESCE(data::jsonb->>'branch','BHB')=?").bind(owner,id,data.branch).all()).results as {id:string;code:string}[]).find(r=>plainCode(r.code||'',data.branch,numbering)===mine);if(duplicate)throw new Error('This office number already exists in this branch.');
  const statements=[db.prepare('INSERT INTO offices (id,owner,code,data) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET code=excluded.code,data=excluded.data WHERE offices.owner=excluded.owner').bind(id,owner,data.branch+':'+data.code,JSON.stringify({...data,id}))];
  let created=0,batchId='';
  if(plan?.on&&plan.rows.length){
