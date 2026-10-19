@@ -27,7 +27,7 @@ export function buildContracts(offices:Office[],leases:any[],payments:Payment[],
  // document attached to a payment goes to that payment's lease, any other to the lease the office had then.
  const claimed=new Set(base.flatMap(x=>x.docIds||[]));
  const docsOf=(c:typeof base[number])=>{if(c.docIds){const ids=new Set(c.docIds);return documents.filter(d=>ids.has(d.id)).sort((a,b)=>b.created.localeCompare(a.created))}
-  const mine=new Set(c.pays.map(p=>p.id)),owned=new Set(base.flatMap(x=>x.pays.map(p=>p.id))),from=base.filter(x=>x.officeId===c.officeId&&x.leaseId&&x.cancelled&&(!c.leaseId||x.cancelled<c.cancelled)).map(x=>x.cancelled).sort().pop()||'',to=c.leaseId?c.cancelled||'9999':'9999';
+  const mine=new Set(c.pays.map(p=>p.id)),owned=new Set(base.flatMap(x=>x.pays.map(p=>p.id))),from=base.filter(x=>x.officeId===c.officeId&&x.leaseId&&x.cancelled&&!x.docIds&&(!c.leaseId||x.cancelled<c.cancelled)).map(x=>x.cancelled).sort().pop()||'',to=c.leaseId?c.cancelled||'9999':'9999';
   return documents.filter(d=>d.officeId===c.officeId&&!claimed.has(d.id)&&(d.paymentId&&owned.has(d.paymentId)?mine.has(d.paymentId):docDay(d.created)>from&&docDay(d.created)<=to)).sort((a,b)=>b.created.localeCompare(a.created))};
  const byContract=new Map<string,any[]>();for(const inv of invoices){const paid=inv.paymentId&&payments.find(p=>p.id===inv.paymentId);if(paid&&!isRent(paid))continue;const c=owner(inv);if(c)byContract.set(c.key,[...(byContract.get(c.key)||[]),inv])}
  return base.map(c=>{const income=c.pays.filter(isRent),{months,value}=contractValue(c.office),received=income.filter(p=>p.status==='Cleared').reduce((a,p)=>a+p.amount,0),pending=income.filter(p=>p.status==='Pending').reduce((a,p)=>a+p.amount,0),inv=byContract.get(c.key)||[];
