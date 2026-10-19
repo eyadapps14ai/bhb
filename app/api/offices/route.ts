@@ -35,7 +35,9 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
  if(zeroRent&&!(before&&before.company===data.company&&!(Number((before as {rent?:number}).rent)>0)))throw new Error('Enter the rent: a lease needs a rent above 0.');
  // A tenant with lease dates means the office is let. The map and the connector read Status while Leases reads tenant
  // and start, so a lease saved with Status left on Available showed a let office as Vacant (#679).
- const madeActive=!!(data.company&&data.start&&data.end&&!data.leaseClosed&&data.status==='Available');if(madeActive)data.status='Active';const activeNote='Status set to Active: this office has a tenant and lease dates. To free it, cancel the lease in Leases.';
+ // An office out of use (Inactive) takes no lease; a running lease makes an Available or Reserved office Active (bhb-reviewer #991).
+ if(data.company&&data.start&&!data.leaseClosed&&data.status==='Inactive'&&!(before?.company&&before.start))throw new Error('This office is out of use. Set it to Available first.');
+ const madeActive=!!(data.company&&data.start&&data.end&&!data.leaseClosed&&(data.status==='Available'||data.status==='Reserved'));if(madeActive)data.status='Active';const activeNote='This office is now rented (it has a tenant and lease dates). To free it, cancel the lease in Lease contracts.';
  // Leases on one office must not overlap: a new tenant, or a new start date, must begin after the last tenant's
  // move-out in Lease history. Saves that keep the tenant and start date as they are (other edits) are not checked.
  if(data.company&&data.start&&(!before?.company||before.start!==data.start)){const last=await db.prepare("SELECT MAX(data::jsonb->>'moveOut') AS d FROM leases WHERE owner=? AND office_id=?").bind(owner,id).first<{d:string|null}>();
