@@ -11,7 +11,8 @@ type Note={id:string;number:number;branch:string;issueDate:string;reason:string;
 const notesByInvoice=new Map<string,Note[]>();for(const r of rows(creditNotes) as {id:string;invoiceId:string;data:string}[]){const c=JSON.parse(r.data);notesByInvoice.set(r.invoiceId,[...(notesByInvoice.get(r.invoiceId)||[]),{id:r.id,number:c.number,branch:c.branch,issueDate:c.issueDate,reason:c.reason,credit:c.credit,full:c.full}])}
 const withCredits=<T extends {id:string}>(i:T)=>{const notes=notesByInvoice.get(i.id);if(!notes)return i;const add=(k:'net'|'vat'|'total')=>Math.round(notes.reduce((a,n)=>a+(n.credit?.[k]||0),0)*100)/100;return {...i,creditNotes:notes.sort((a,b)=>a.issueDate.localeCompare(b.issueDate)),credited:{net:add('net'),vat:add('vat'),total:add('total')}}};
 const money=can(user,'cash')||can(user,'workbook')||can(user,'contracts'),
- // Lease contracts alone (e.g. Sales) shows the leases' own income payments, not expenses or the rest of the cash book.
+ // Lease contracts alone (e.g. Sales) shows the leases' own income payments and invoices, not expenses, the rest of the
+ // cash book or invoices to customers without an office (PRO services and the like).
  cashBook=can(user,'cash')||can(user,'workbook'),people=rows(users).map(r=>({...JSON.parse(r.data),id:r.id,email:r.email}));
 // Sales employees: names for the Sold by field and the commission page (inactive kept for past deals);
 // rates only for those allowed to see every commission, or for the salesperson's own record.
@@ -32,7 +33,7 @@ payments:money?rows(payments).map(parse).filter(p=>p.officeId?ids.has(p.officeId
 documents:can(user,'documents')||can(user,'offices')?(docs.results as {officeId:string}[]).filter(d=>ids.has(d.officeId)):[],
 leases:can(user,'offices')||can(user,'sales')?rows(leases).filter(r=>ids.has(r.officeId!)).map(parse):[],
 // Invoices for an office in this person's branches, or for a customer without an office in those branches.
-invoices:money?rows(invoices).filter(r=>r.officeId?ids.has(r.officeId):inBranch(JSON.parse(r.data).branch)).map(r=>withCredits({...JSON.parse(r.data),id:r.id,seq:r.seq})):[],
+invoices:money?rows(invoices).filter(r=>r.officeId?ids.has(r.officeId):inBranch(JSON.parse(r.data).branch)).filter(r=>cashBook||!!r.officeId).map(r=>withCredits({...JSON.parse(r.data),id:r.id,seq:r.seq})):[],
 customers:can(user,'customers')?rows(customers).map(parse).filter(c=>inBranch(c.branch)):[],
 issuers:money?rows(issuers).map(r=>JSON.parse(r.data)).filter(i=>inBranch(i.branch)):[],
 employees:can(user,'employees')?staff.filter(e=>inBranch(e.branch)):[],
