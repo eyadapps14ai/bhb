@@ -102,8 +102,13 @@ function postgres(): Driver {
     },
     async transaction(run) {
       const client = await pool.connect();
-      // A client whose ROLLBACK fails is broken: it is dropped (release with the error) instead of reused.
+      // A client whose connection drops (an 'error' event) or whose ROLLBACK fails is broken: it is dropped (release
+      // with the error) instead of reused. Without the listener a dropped connection would crash the server process.
       let broken: Error | undefined;
+      const onError = (e: Error) => {
+        broken = e;
+      };
+      client.on("error", onError);
       try {
         await client.query("BEGIN");
         const result = await run((sql, params) => client.query(sql, params));
@@ -115,6 +120,7 @@ function postgres(): Driver {
         });
         throw error;
       } finally {
+        client.off("error", onError);
         client.release(broken);
       }
     },

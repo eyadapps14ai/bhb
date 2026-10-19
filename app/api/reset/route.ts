@@ -10,5 +10,5 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
  if(body.action==='plan'||body.action==='backup'){const plan=await db.transaction(all=>resetPlan(db,all,owner));
   return Response.json(body.action==='plan'?{deleted:resetCounts(plan),kept:plan.kept,last:await lastReset(db,owner)}:resetBackup(plan,user))}
  if(body.action==='reset'){if(body.confirm!=='RESET')throw new Error('Type RESET to confirm.');if(typeof body.fingerprint!=='string'||!/^[0-9a-f]{64}$/.test(body.fingerprint))throw new Error('Download the backup first, then reset.');
-  const entry=await resetData(db,owner,user,body.fingerprint).catch((e:unknown)=>{if(e&&typeof e==='object'&&(e as {code?:string}).code==='55P03')throw new Error('Someone is saving records right now. Try the reset again in a moment.');throw e});console.info(JSON.stringify({event:'bhb-data-reset',...entry}));return Response.json(entry)}
+  const entry=await resetData(db,owner,user,body.fingerprint).catch((e:unknown)=>{const code=e&&typeof e==='object'?(e as {code?:string}).code:'';if(code==='55P03'||code==='40P01')throw new Error('Someone is saving records right now. Try the reset again in a moment.');throw e});console.info(JSON.stringify({event:'bhb-data-reset',...entry}));return Response.json(entry)}
  throw new Error('Unknown action.');}catch(e){return failure(e);}}
