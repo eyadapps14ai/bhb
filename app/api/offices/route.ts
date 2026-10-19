@@ -46,7 +46,9 @@ export async function POST(req:Request){try{const{db,owner,user}=await context(r
  const statements=[db.prepare('INSERT INTO offices (id,owner,code,data) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET code=excluded.code,data=excluded.data WHERE offices.owner=excluded.owner').bind(id,owner,data.branch+':'+data.code,JSON.stringify({...data,id}))];
  let created=0,batchId='';
  if(plan?.on&&plan.rows.length){
-  if(!can(user,'cash','edit'))throw new Error('Saving a payment schedule needs edit rights on Cash and expenses. Untick the schedule or ask an admin.');
+  // The lease's own payment schedule (pending rent payments of this lease) is part of the lease (Admin #1001): Lease
+  // contracts edit is enough; receiving cash and the rest of Cash and expenses still need Cash edit.
+  if(!can(user,'cash','edit')&&!mayLeases)throw new Error('Saving a payment schedule needs edit rights on Lease contracts or Cash and expenses. Untick the schedule or ask an admin.');
   if(!data.company||!data.start||!data.end)throw new Error('Add the tenant and lease dates before creating a payment schedule.');
   const existingRows:any[]=data.id?((await db.prepare('SELECT data FROM payments WHERE owner=? AND office_id=?').bind(owner,id).all()).results||[]):[];const room=leaseRoom(data,existingRows.map(r=>JSON.parse(r.data)),id),planned=plan.rows.reduce((a,r)=>a+r.amount,0);
   if(room.value>0&&planned>room.left+0.5)throw new Error('The schedule adds '+aedText(planned)+' of rent but the lease is worth '+aedText(room.value)+(room.used?' and '+aedText(room.used)+' is already recorded':'')+'. Lower the amounts or press Recalculate.');

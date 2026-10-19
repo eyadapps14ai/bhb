@@ -115,7 +115,7 @@ const canEnquire=may('enquiries');
  const save=async(path:string,body:any,close:()=>void):Promise<any>=>{setBusy(true);setFormError('');try{const r=await api(path,body);await reload();close();toast.success(r?.payments?'Saved with '+r.payments+' scheduled payment'+(r.payments===1?'':'s')+' in Cash and expenses':r?.invoice?'Saved · tax invoice issued':'Saved');if(r?.note)toast(r.note);if(r?.invoiceNote)toast(/company details/.test(r.invoiceNote)?'No tax invoice yet: save your company details (seller) in Accounts first.':'No tax invoice: '+r.invoiceNote);return r}catch(e){setFormError((e as Error).message)}finally{setBusy(false)}};
  // Payment schedule in the lease form: for a new lease, or a lease that has no rent payments yet (needs Cash flow edit).
  const leaseNums=(d:any)=>({start:d?.start||'',end:d?.end||'',rent:Number(d?.rent)||0,period:d?.period||'Yearly',vat:Number(d?.vat)||0,deposit:Number(d?.deposit)||0});
- const canSchedule=!!officeDraft&&may('cash','edit')&&(!!officeDraft.newLease||!!officeDraft.id&&!!officeDraft.company&&!data.payments.some(p=>p.officeId===officeDraft.id&&p.direction==='Income'&&(p.incomeType||'Rent')==='Rent'));
+ const canSchedule=!!officeDraft&&(may('cash','edit')||may('contracts','edit'))&&(!!officeDraft.newLease||!!officeDraft.id&&!!officeDraft.company&&!data.payments.some(p=>p.officeId===officeDraft.id&&p.direction==='Income'&&(p.incomeType||'Rent')==='Rent'));
  const schedule=canSchedule?liveSchedule(leaseNums(officeDraft),officeDraft.schedule,!!officeDraft.newLease):null;
  // New lease is a wizard (like Add employee): Office > Tenant > Contract > Payments (when allowed) > Check and save.
  // Contract term (Admin #826): the end date follows the start and the term (1 year for yearly rent, 1 month for monthly)
